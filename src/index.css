@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+/* ================= GLOBAL ================= */
+:root {
+  --font-sans: 'Poppins', system-ui, -apple-system, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial;
+}
+
+html, body {
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  scroll-behavior: smooth;
+  color: #111827;               /* ✅ dark readable text */
+  background-color: #ffffff;
+}
+
+/* ================= ANIMATION ================= */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* ================= INPUTS ================= */
+.input {
+  width: 100%;
+  padding: 8px 10px;            /* ✅ compact height */
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 14px;
+
+  background-color: #ffffff;
+  color: #111827;               /* ✅ solid black text */
+}
+
+.input::placeholder {
+  color: #6b7280;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 1px #f97316;
+}
+
+/* ================= BUTTONS ================= */
+.btn-blue {
+  width: 100%;
+  background-color: #2563eb;
+  color: #ffffff;
+  padding: 9px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.btn-green {
+  width: 100%;
+  background-color: #16a34a;
+  color: #ffffff;
+  padding: 9px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.btn-orange {
+  width: 100%;
+  background-color: #f97316;
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+/* ================= MODAL FIXES ================= */
+
+/* Prevent page scrolling when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Smooth scrollbar inside modal */
+.modal-scroll {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* Custom scrollbar (optional but professional) */
+.modal-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 6px;
+}

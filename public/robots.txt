@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Sitemap: https://www.dcpsnps.org/sitemap.xml
+# Crawl-delay can be added for low-resource hosts
+# Crawl-delay: 10
