@@ -1,19 +1,15 @@
 import { useState } from "react";
 import logo from "../../assets/logo1.png";
 import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
-import { auth } from "../../services/firebase";
-import {
-  signInWithEmailAndPassword,
-  sendEmailVerification,
-  signOut,
-} from "firebase/auth";
+import { auth, db } from "../../services/firebase";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { ref, get } from "firebase/database";
 import { toast } from "react-toastify";
 
 const LoginModal = ({ onClose, onSwitchToRegister, onSwitchToForgot }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const [unverifiedUser, setUnverifiedUser] = useState(null);
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -27,17 +23,28 @@ const LoginModal = ({ onClose, onSwitchToRegister, onSwitchToForgot }) => {
     try {
       setLoading(true);
 
+      // 🔐 Firebase login
       const { user } = await signInWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
 
-      // 🔐 BLOCK LOGIN IF EMAIL NOT VERIFIED
-      if (!user.emailVerified) {
-        await signOut(auth); // ✅ CRITICAL FIX
-        setUnverifiedUser(user);
-        toast.error("Please verify your email before login");
+      // 📦 Get user data from DB
+      const snapshot = await get(ref(db, `users/${user.uid}`));
+
+      if (!snapshot.exists()) {
+        await signOut(auth);
+        toast.error("User record not found");
+        return;
+      }
+
+      const userData = snapshot.val();
+
+      // ✅ OTP-based email verification check
+      if (!userData.emailVerified) {
+        await signOut(auth);
+        toast.error("Please verify your email via OTP before login");
         return;
       }
 
@@ -50,28 +57,12 @@ const LoginModal = ({ onClose, onSwitchToRegister, onSwitchToForgot }) => {
     }
   };
 
-  const resendVerification = async () => {
-    if (!unverifiedUser) return;
-
-    try {
-      await sendEmailVerification(unverifiedUser);
-      toast.info("Verification email resent. Check your inbox.");
-    } catch {
-      toast.error("Failed to resend verification email");
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black opacity-50"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black opacity-50" onClick={onClose} />
+
       <div className="relative bg-white w-[95%] max-w-lg p-8 rounded-lg shadow-xl">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-xl"
-        >
+        <button onClick={onClose} className="absolute top-4 right-4 text-xl">
           ×
         </button>
 
@@ -129,21 +120,9 @@ const LoginModal = ({ onClose, onSwitchToRegister, onSwitchToForgot }) => {
           {loading ? "Logging in..." : "Login"}
         </button>
 
-        {unverifiedUser && (
-          <button
-            onClick={resendVerification}
-            className="block mx-auto mt-3 text-sm text-blue-600"
-          >
-            Resend Verification Email
-          </button>
-        )}
-
         <p className="text-center mt-4 text-sm">
           Don’t have an account?{" "}
-          <button
-            onClick={onSwitchToRegister}
-            className="text-orange-600"
-          >
+          <button onClick={onSwitchToRegister} className="text-orange-600">
             Register
           </button>
         </p>
