@@ -59,7 +59,8 @@ const Register = ({ onClose }) => {
     "font-normal text-slate-600 placeholder:text-slate-400 bg-white " +
     "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
-  // OTP timers
+  /* ================= OTP TIMERS ================= */
+
   useEffect(() => {
     if (resendTimer > 0) {
       const t = setInterval(() => setResendTimer((v) => v - 1), 1000);
@@ -78,12 +79,16 @@ const Register = ({ onClose }) => {
     }
   }, [otpTimer, otpSent, emailVerified]);
 
-  // OTP
+  /* ================= OTP LOGIC ================= */
+
   const generateOtp = () =>
     Math.floor(100000 + Math.random() * 900000).toString();
 
   const sendEmailOtp = async () => {
-    if (!formData.email) return toast.error("Enter email first");
+    if (!formData.email) {
+      toast.error("Enter email first");
+      return;
+    }
 
     const otp = generateOtp();
     setGeneratedOtp(otp);
@@ -123,7 +128,8 @@ const Register = ({ onClose }) => {
     toast.success("Email verified successfully");
   };
 
-  // Location
+  /* ================= LOCATION ================= */
+
   useEffect(() => {
     getStatesOfIndia().then(setStates);
   }, []);
@@ -135,7 +141,8 @@ const Register = ({ onClose }) => {
     setDistricts(await getDistrictsOfState(s.iso2));
   };
 
-  // Password strength
+  /* ================= PASSWORD STRENGTH ================= */
+
   const passwordStrength = () => {
     const p = formData.password;
     if (p.length < 6) return "Weak";
@@ -143,47 +150,81 @@ const Register = ({ onClose }) => {
     return "Medium";
   };
 
-  // Register
+  /* ================= REGISTER (FIXED) ================= */
+
   const handleRegister = async () => {
-    if (!emailVerified) return toast.error("Verify email first");
+    if (!emailVerified) {
+      toast.error("Verify email first");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
 
     try {
       setLoading(true);
-      const { user } = await createUserWithEmailAndPassword(
+
+      const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
         formData.password
       );
 
+      const user = userCredential.user;
+
       const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`;
       await updateProfile(user, { displayName: fullName });
 
       await set(ref(db, `users/${user.uid}`), {
-        ...formData,
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        lastName: formData.lastName,
         fullName,
+        gender: formData.gender,
+        dob: formData.dob,
+        mobile: formData.mobile,
+        email: formData.email,
         emailVerified: true,
+        address: {
+          state: formData.state,
+          district: formData.district,
+          village: formData.village,
+        },
         createdAt: Date.now(),
       });
 
       await signOut(auth);
       setRegisteredEmail(formData.email);
       setSuccess(true);
-    } catch {
-      toast.error("Registration failed");
+
+    } catch (error) {
+      console.error("Registration error:", error);
+
+      if (error.code === "auth/email-already-in-use") {
+        toast.error("This email is already registered. Please login.");
+      } else if (error.code === "auth/invalid-email") {
+        toast.error("Invalid email address");
+      } else if (error.code === "auth/weak-password") {
+        toast.error("Password is too weak");
+      } else {
+        toast.error("Registration failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  /* ================= UI ================= */
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="relative bg-white w-[95%] max-w-md rounded-lg shadow-lg p-5 max-h-[90vh] overflow-y-auto">
 
-        {/* ❌ CROSS CANCEL BUTTON */}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-2xl text-slate-500 hover:text-red-500"
-          aria-label="Close"
         >
           ✕
         </button>
