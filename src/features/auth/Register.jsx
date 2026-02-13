@@ -13,8 +13,16 @@ import {
   getStatesOfIndia,
   getDistrictsOfState,
 } from "../../services/locationApi";
+import logo from "../../assets/logo1.png";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { registerLocale } from "react-datepicker";
+import enGB from "date-fns/locale/en-GB";
 
-const OTP_EXPIRY_TIME = 300;
+registerLocale("en-GB", enGB);
+
+
+const OTP_EXPIRY_TIME = 60;
 const OTP_MAX_ATTEMPTS = 3;
 
 const Register = ({ onClose }) => {
@@ -33,6 +41,7 @@ const Register = ({ onClose }) => {
 
   // UI
   const [showPassword, setShowPassword] = useState(false);
+const [dobDate, setDobDate] = useState(null);
 
   // Location
   const [states, setStates] = useState([]);
@@ -55,12 +64,11 @@ const Register = ({ onClose }) => {
   });
 
   const fieldStyle =
-    "w-full rounded-md border border-slate-300 px-3 py-2 text-sm " +
-    "font-normal text-slate-600 placeholder:text-slate-400 bg-white " +
-    "focus:outline-none focus:ring-2 focus:ring-blue-500";
+    "w-full rounded-md border border-blue-200 px-4 py-2.5 text-sm " +
+    "text-black placeholder:text-black bg-white appearance-none " +
+    "focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-400 mb-3";
 
   /* ================= OTP TIMERS ================= */
-
   useEffect(() => {
     if (resendTimer > 0) {
       const t = setInterval(() => setResendTimer((v) => v - 1), 1000);
@@ -80,56 +88,92 @@ const Register = ({ onClose }) => {
   }, [otpTimer, otpSent, emailVerified]);
 
   /* ================= OTP LOGIC ================= */
-
   const generateOtp = () =>
     Math.floor(100000 + Math.random() * 900000).toString();
 
-  const sendEmailOtp = async () => {
-    if (!formData.email) {
-      toast.error("Enter email first");
-      return;
-    }
+ const sendEmailOtp = async () => {
 
-    const otp = generateOtp();
-    setGeneratedOtp(otp);
-    setOtpSent(true);
-    setOtpTimer(OTP_EXPIRY_TIME);
-    setOtpAttempts(0);
-    setResendTimer(60);
+   setEmailVerified(false);
+  setEnteredOtp("");
 
-    try {
-      await emailjs.send(
-        import.meta.env.VITE_EMAILJS_SERVICE_ID,
-        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        { to_email: formData.email, otp },
-        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-      );
-      toast.success("OTP sent to email");
-    } catch {
-      toast.error("Failed to send OTP");
-    }
-  };
+  // 🔴 Check ALL required fields before OTP
+  if (
+    !formData.firstName ||
+    !formData.middleName ||
+    !formData.lastName ||
+    !formData.gender ||
+    !dobDate ||
+    !formData.mobile ||
+    !formData.state ||
+    !formData.district ||
+    !formData.village ||
+    !formData.email
+  ) {
+    toast.error("Please fill all fields before sending OTP");
+    return;
+  }
 
-  const verifyOtp = () => {
-    if (otpAttempts >= OTP_MAX_ATTEMPTS) {
-      toast.error("Too many attempts. Please resend OTP.");
-      return;
-    }
+  // 🔴 Mobile validation (exact 10 digits)
+  if (!/^\d{10}$/.test(formData.mobile)) {
+    toast.error("Mobile number must be exactly 10 digits");
+    return;
+  }
 
-    if (enteredOtp !== generatedOtp) {
-      setOtpAttempts((v) => v + 1);
-      toast.error(
-        `Invalid OTP (${OTP_MAX_ATTEMPTS - otpAttempts - 1} attempts left)`
-      );
-      return;
-    }
+  const otp = generateOtp();
+  setGeneratedOtp(otp);
+  setOtpSent(true);
+  setOtpTimer(OTP_EXPIRY_TIME);
+  setOtpAttempts(0);
+  setResendTimer(60);
 
-    setEmailVerified(true);
-    toast.success("Email verified successfully");
-  };
+  try {
+    await emailjs.send(
+      import.meta.env.VITE_EMAILJS_SERVICE_ID,
+      import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+      { to_email: formData.email, otp },
+      import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+    );
+    toast.success("OTP sent to email");
+  } catch {
+    toast.error("Failed to send OTP");
+  }
+};
+
+
+
+const verifyOtp = () => {
+
+  // ❌ If OTP expired
+  if (!otpSent) {
+    toast.error("Please resend OTP");
+    return;
+  }
+
+  // ❌ Wrong OTP
+  if (enteredOtp !== generatedOtp) {
+    toast.error("Invalid OTP. Please resend OTP.");
+
+    // 🔴 Immediately invalidate OTP
+    setOtpSent(false);
+    setGeneratedOtp("");
+    setEnteredOtp("");
+    setOtpTimer(0);
+    setResendTimer(0);
+
+    return;
+  }
+
+  // ✅ Correct OTP
+  setEmailVerified(true);
+  setResendTimer(0);
+  setOtpTimer(0);
+  setOtpSent(false);
+
+  toast.success("Email verified successfully");
+};
+
 
   /* ================= LOCATION ================= */
-
   useEffect(() => {
     getStatesOfIndia().then(setStates);
   }, []);
@@ -142,7 +186,6 @@ const Register = ({ onClose }) => {
   };
 
   /* ================= PASSWORD STRENGTH ================= */
-
   const passwordStrength = () => {
     const p = formData.password;
     if (p.length < 6) return "Weak";
@@ -150,169 +193,252 @@ const Register = ({ onClose }) => {
     return "Medium";
   };
 
-  /* ================= REGISTER (FIXED) ================= */
+  /* ================= REGISTER ================= */
+const handleRegister = async () => {
 
-  const handleRegister = async () => {
-    if (!emailVerified) {
-      toast.error("Verify email first");
-      return;
-    }
+  // 🔴 Final check - no field empty
+  if (
+    !formData.firstName ||
+    !formData.middleName ||
+    !formData.lastName ||
+    !formData.gender ||
+    !dobDate ||
+    !formData.mobile ||
+    !formData.state ||
+    !formData.district ||
+    !formData.village ||
+    !formData.email ||
+    !formData.password ||
+    !formData.confirmPassword
+  ) {
+    toast.error("Please fill all fields");
+    return;
+  }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
-      return;
-    }
+  // 🔴 Mobile validation
+  if (!/^\d{10}$/.test(formData.mobile)) {
+    toast.error("Mobile number must be exactly 10 digits");
+    return;
+  }
 
-    try {
-      setLoading(true);
+  if (!emailVerified) {
+    toast.error("Verify email first");
+    return;
+  }
 
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        formData.email,
-        formData.password
-      );
+  if (formData.password !== formData.confirmPassword) {
+    toast.error("Passwords do not match");
+    return;
+  }
 
-      const user = userCredential.user;
+  try {
+    setLoading(true);
 
-      const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`;
-      await updateProfile(user, { displayName: fullName });
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      formData.email,
+      formData.password
+    );
 
-      await set(ref(db, `users/${user.uid}`), {
-        firstName: formData.firstName,
-        middleName: formData.middleName,
-        lastName: formData.lastName,
-        fullName,
-        gender: formData.gender,
-        dob: formData.dob,
-        mobile: formData.mobile,
-        email: formData.email,
-        emailVerified: true,
-        address: {
-          state: formData.state,
-          district: formData.district,
-          village: formData.village,
-        },
-        createdAt: Date.now(),
-      });
+    const user = userCredential.user;
+    const fullName = `${formData.firstName} ${formData.middleName} ${formData.lastName}`;
 
-      await signOut(auth);
-      setRegisteredEmail(formData.email);
-      setSuccess(true);
+    await updateProfile(user, { displayName: fullName });
 
-    } catch (error) {
-      console.error("Registration error:", error);
+    await set(ref(db, `users/${user.uid}`), {
+      ...formData,
+      fullName,
+      emailVerified: true,
+      createdAt: Date.now(),
+    });
 
-      if (error.code === "auth/email-already-in-use") {
-        toast.error("This email is already registered. Please login.");
-      } else if (error.code === "auth/invalid-email") {
-        toast.error("Invalid email address");
-      } else if (error.code === "auth/weak-password") {
-        toast.error("Password is too weak");
-      } else {
-        toast.error("Registration failed. Please try again.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    await signOut(auth);
+    setRegisteredEmail(formData.email);
+    setSuccess(true);
+
+  } catch (error) {
+
+  if (error.code === "auth/email-already-in-use") {
+    toast.error("This email is already registered. Please login.");
+  } 
+  else if (error.code === "auth/invalid-email") {
+    toast.error("Invalid email address");
+  } 
+  else if (error.code === "auth/weak-password") {
+    toast.error("Password should be at least 6 characters");
+  } 
+  else {
+    toast.error("Registration failed");
+  }
+
+} finally {
+  setLoading(false);
+}
+
+};
+
 
   /* ================= UI ================= */
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="relative bg-white w-[95%] max-w-md rounded-lg shadow-lg p-5 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-white w-[95%] max-w-md rounded-lg shadow-lg max-h-[90vh] overflow-hidden">
+        {/* Scrollable content */}
+        <div className="p-5 max-h-[90vh] overflow-y-auto no-scrollbar">
 
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-2xl text-slate-500 hover:text-red-500"
-        >
-          ✕
-        </button>
+          <button
+          type="button"
+            onClick={onClose}
+            className="absolute top-4 right-4 text-xl text-gray-400 hover:text-red-500"
+          >
+            ✕
+          </button>
 
-        <h2 className="text-xl font-semibold text-center mb-4">
-          User Registration
-        </h2>
-
-        {!success ? (
-          <>
-            <input className={fieldStyle} placeholder="First Name" onChange={e => setFormData({ ...formData, firstName: e.target.value })} />
-            <input className={fieldStyle} placeholder="Middle Name" onChange={e => setFormData({ ...formData, middleName: e.target.value })} />
-            <input className={fieldStyle} placeholder="Last Name" onChange={e => setFormData({ ...formData, lastName: e.target.value })} />
-
-            <select className={fieldStyle} onChange={e => setFormData({ ...formData, gender: e.target.value })}>
-              <option value="">Select Gender</option>
-              <option>Male</option>
-              <option>Female</option>
-              <option>Other</option>
-            </select>
-
-            <input className={fieldStyle} type="date" onChange={e => setFormData({ ...formData, dob: e.target.value })} />
-            <input className={fieldStyle} placeholder="Mobile Number" onChange={e => setFormData({ ...formData, mobile: e.target.value })} />
-
-            <select className={fieldStyle} onChange={handleStateChange}>
-              <option value="">Select State</option>
-              {states.map(s => <option key={s.iso2}>{s.name}</option>)}
-            </select>
-
-            <select className={fieldStyle} onChange={e => setFormData({ ...formData, district: e.target.value })}>
-              <option value="">Select District</option>
-              {districts.map(d => <option key={d.id}>{d.name}</option>)}
-            </select>
-
-            <input className={fieldStyle} placeholder="Village" onChange={e => setFormData({ ...formData, village: e.target.value })} />
-            <input className={fieldStyle} placeholder="Email Address" onChange={e => setFormData({ ...formData, email: e.target.value })} />
-
-            <button onClick={sendEmailOtp} disabled={resendTimer > 0} className="btn-blue w-full mt-2">
-              {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : "Send Email OTP"}
-            </button>
-
-            <input className={fieldStyle} placeholder="Enter OTP" onChange={e => setEnteredOtp(e.target.value)} />
-            <button onClick={verifyOtp} className="btn-green w-full mt-1">
-              Verify OTP
-            </button>
-
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                className={fieldStyle}
-                placeholder="Password"
-                onChange={e => setFormData({ ...formData, password: e.target.value })}
-              />
-              <span
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2 cursor-pointer text-sm text-blue-500"
-              >
-                {showPassword ? "Hide" : "Show"}
-              </span>
-            </div>
-
-            <p className="text-sm mt-1">
-              Strength: <b>{passwordStrength()}</b>
-            </p>
-
-            <input
-              type="password"
-              className={fieldStyle}
-              placeholder="Confirm Password"
-              onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-            />
-
-            <button
-              onClick={handleRegister}
-              disabled={!emailVerified || loading}
-              className="btn-orange w-full mt-3"
-            >
-              {loading ? "Creating Account..." : "Register"}
-            </button>
-          </>
-        ) : (
-          <div className="text-center">
-            <h2 className="text-green-600 font-semibold text-lg">
-              Registration Successful
-            </h2>
-            <p>{registeredEmail}</p>
+          <div className="flex justify-center mb-4">
+            <img src={logo} alt="logo" className="h-12" />
           </div>
-        )}
+
+          <h2 className="text-xl font-semibold text-center mb-4">User Registration</h2>
+          <p className="text-center text-gray-500 text-sm mb-6">Create your account</p>
+
+          {!success ? (
+            <>
+              <input className={fieldStyle} placeholder="First Name" onChange={e => setFormData({ ...formData, firstName: e.target.value })} />
+              <input className={fieldStyle} placeholder="Middle Name" onChange={e => setFormData({ ...formData, middleName: e.target.value })} />
+              <input className={fieldStyle} placeholder="Last Name" onChange={e => setFormData({ ...formData, lastName: e.target.value })} />
+
+              <select className={fieldStyle} onChange={e => setFormData({ ...formData, gender: e.target.value })}>
+                <option value="">Select Gender</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+  <DatePicker
+  selected={dobDate}
+  onChange={(date) => {
+    setDobDate(date);
+
+    if (date) {
+      const d = String(date.getDate()).padStart(2, "0");
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const y = date.getFullYear();
+
+      setFormData({
+        ...formData,
+        dob: `${d}/${m}/${y}`, // ✅ 19/12/2002
+      });
+    }
+  }}
+  placeholderText="Date of Birth"
+  className={fieldStyle}
+  wrapperClassName="w-full mb-3"
+  dateFormat="dd/MM/yyyy"   // ✅ DISPLAY
+  locale="en-GB"            // ✅ DAY FIRST
+  isClearable
+/>
+
+<input
+  className={fieldStyle}
+  placeholder="Mobile Number"
+  value={formData.mobile}
+  maxLength={10} // restrict typing to 10 digits
+  onChange={(e) => {
+    const value = e.target.value;
+
+    // Allow only digits
+    if (!/^\d*$/.test(value)) return;
+
+    setFormData({ ...formData, mobile: value });
+  }}
+  onBlur={() => {
+    // Validate on leaving the field
+    if (formData.mobile.length !== 10) {
+      toast.error("Mobile number must be exactly 10 digits");
+    }
+  }}
+/>
+
+              <select className={fieldStyle} onChange={handleStateChange}>
+                <option value="">Select State</option>
+                {states.map(s => <option key={s.iso2}>{s.name}</option>)}
+              </select>
+              <select className={fieldStyle} onChange={e => setFormData({ ...formData, district: e.target.value })}>
+                <option value="">Select District</option>
+                {districts.map(d => <option key={d.id}>{d.name}</option>)}
+              </select>
+
+              <input className={fieldStyle} placeholder="Village" onChange={e => setFormData({ ...formData, village: e.target.value })} />
+
+              {/* OTP Section */}
+              <div className="mb-3">
+                <input
+                  className={fieldStyle}
+                  placeholder="Email Address"
+                  value={formData.email}
+                  disabled={emailVerified} 
+                  onChange={e => {
+                    setFormData({ ...formData, email: e.target.value });
+                    setOtpSent(false);
+                    setEnteredOtp("");
+                    setEmailVerified(false);
+                    setOtpAttempts(0);
+                  }}
+                />
+                <button
+                type="button"
+  onClick={sendEmailOtp}
+ disabled={!formData.email || emailVerified}
+  className={`w-full py-2 rounded-lg font-medium mb-2 ${
+    emailVerified
+      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+      : "bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"
+  }`}
+>
+  {resendTimer > 0
+    ? `Resend OTP in ${resendTimer}s`
+    : emailVerified
+    ? "Email Verified"
+    : "Send Email OTP"}
+</button>
+
+                <input
+                  className={fieldStyle}
+                  placeholder="Enter OTP"
+                  value={enteredOtp}
+                  onChange={(e) => setEnteredOtp(e.target.value)}
+                />
+                <button
+                type="button"
+                  onClick={verifyOtp}
+                  disabled={!otpSent || emailVerified}
+                  className={`w-full py-2 rounded-lg font-medium mb-3 ${
+                    emailVerified
+                      ? "bg-orange-100 text-orange-600 cursor-not-allowed"
+                      : "bg-orange-100 text-orange-600 hover:bg-orange-200 transition-colors"
+                  }`}
+                >
+                  {emailVerified ? "OTP Verified ✅" : "Verify OTP"}
+                </button>
+                {otpSent && !emailVerified && (
+                  <p className="text-sm text-gray-500">
+                    OTP valid for {otpTimer}s | Attempts left: {OTP_MAX_ATTEMPTS - otpAttempts}
+                  </p>
+                )}
+              </div>
+
+              <input type={showPassword ? "text" : "password"} className={fieldStyle} placeholder="Password" onChange={e => setFormData({ ...formData, password: e.target.value })} />
+              <input type="password" className={fieldStyle} placeholder="Confirm Password" onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })} />
+
+              <button onClick={handleRegister} className="w-full bg-orange-500 text-white py-3 rounded-xl mt-2">
+                Register
+              </button>
+            </>
+          ) : (
+            <div className="text-center py-10">
+              <h2 className="text-orange-600 font-semibold text-lg">Registration Successful</h2>
+              <p>{registeredEmail}</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
