@@ -374,7 +374,8 @@ const handleRegister = async () => {
                   className={fieldStyle}
                   placeholder="Email Address"
                   value={formData.email}
-                  disabled={emailVerified} 
+                  disabled={otpSent || emailVerified}
+
                   onChange={e => {
                     setFormData({ ...formData, email: e.target.value });
                     setOtpSent(false);
@@ -383,6 +384,7 @@ const handleRegister = async () => {
                     setOtpAttempts(0);
                   }}
                 />
+
                 <button
                 type="button"
   onClick={sendEmailOtp}
