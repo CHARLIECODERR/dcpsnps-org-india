@@ -28,10 +28,10 @@ const normalize = (str) =>
     .replace(/\s+/g, "")
     .trim();
 
-   const DISTRICT_ALIASES = {
-  "buldana": "Buldhana",
+  const DISTRICT_ALIASES = {
+  "buldhana": "Buldhana",    // correct spelling
   "mumbai": "Mumbai City",
-  "raigarh": "Raigad",
+  "raigad": "Raigad",        // correct spelling
   "mumbaisuburban": "Mumbai Suburban"
 };
 
@@ -253,14 +253,15 @@ const verifyOtp = () => {
 
   if (stateName === "Maharashtra") {
     finalDistricts = data
-      .map(d => {
-        const key = normalize(d.name);
-        const nameWithAlias = DISTRICT_ALIASES[key] || d.name;
-        return { ...d, name: nameWithAlias };
-      })
-      .filter(d =>
-        MAHARASHTRA_DISTRICTS.some(md => normalize(md) === normalize(d.name))
-      );
+  .map(d => {
+    const key = normalize(d.name);
+    const nameWithAlias = DISTRICT_ALIASES[key] || d.name;
+    return { ...d, name: nameWithAlias };
+  })
+  .filter(d =>
+    MAHARASHTRA_DISTRICTS.some(md => normalize(md) === normalize(d.name))
+  );
+
   }
 
   setDistricts(finalDistricts);
