@@ -14,16 +14,70 @@ import {
   getDistrictsOfState,
 } from "../../services/locationApi";
 import logo from "../../assets/logo1.png";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { registerLocale } from "react-datepicker";
-import enGB from "date-fns/locale/en-GB";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 
-registerLocale("en-GB", enGB);
+
+const normalize = (str) =>
+  str
+    .toLowerCase()
+    .replace("district", "")
+    .replace(/\s+/g, "")
+    .trim();
+
+   const DISTRICT_ALIASES = {
+  "buldana": "Buldhana",
+  "mumbai": "Mumbai City",
+  "raigarh": "Raigad",
+  "mumbaisuburban": "Mumbai Suburban"
+};
+
+
+
+
+
+const MAHARASHTRA_DISTRICTS = [
+  "Ahmednagar", "Akola", "Amravati", "Aurangabad",
+  "Beed", "Bhandara", "Buldhana", "Chandrapur",
+  "Dhule", "Gadchiroli", "Gondia", "Hingoli",
+  "Jalgaon", "Jalna", "Kolhapur", "Latur",
+  "Mumbai City", "Mumbai Suburban", "Nagpur",
+  "Nanded", "Nandurbar", "Nashik", "Osmanabad",
+  "Palghar", "Parbhani", "Pune", "Raigad",
+  "Ratnagiri", "Sangli", "Satara", "Sindhudurg",
+  "Solapur", "Thane", "Wardha", "Washim",
+  "Yavatmal"
+];
+
 
 
 const OTP_EXPIRY_TIME = 60;
 const OTP_MAX_ATTEMPTS = 3;
+const muiFieldStyle = {
+  mb: 1.2,
+  "& .MuiOutlinedInput-root": {
+    borderRadius: "6px",
+    fontSize: "14px",
+    height: "44px",
+    backgroundColor: "#fff",
+  },
+  "& label.Mui-focused": {
+    color: "#f97316", // orange
+  },
+  "& .MuiOutlinedInput-notchedOutline": {
+    borderColor: "#bfdbfe", // blue-200
+  },
+  "&:hover .MuiOutlinedInput-notchedOutline": {
+    borderColor: "#f97316",
+  },
+  "& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+    borderColor: "#f97316",
+  },
+};
+
 
 const Register = ({ onClose }) => {
   const [loading, setLoading] = useState(false);
@@ -38,6 +92,7 @@ const Register = ({ onClose }) => {
   const [resendTimer, setResendTimer] = useState(0);
   const [otpTimer, setOtpTimer] = useState(0);
   const [otpAttempts, setOtpAttempts] = useState(0);
+  const [otpLocked, setOtpLocked] = useState(false);
 
   // UI
   const [showPassword, setShowPassword] = useState(false);
@@ -92,6 +147,7 @@ const [dobDate, setDobDate] = useState(null);
     Math.floor(100000 + Math.random() * 900000).toString();
 
  const sendEmailOtp = async () => {
+  setOtpLocked(false); // 🔓 UNLOCK OTP on resend
 
    setEmailVerified(false);
   setEnteredOtp("");
@@ -142,26 +198,26 @@ const [dobDate, setDobDate] = useState(null);
 
 
 const verifyOtp = () => {
+  setOtpLocked(true); //locked
 
   // ❌ If OTP expired
-  if (!otpSent) {
-    toast.error("Please resend OTP");
-    return;
-  }
-
-  // ❌ Wrong OTP
   if (enteredOtp !== generatedOtp) {
-    toast.error("Invalid OTP. Please resend OTP.");
+  const newAttempts = otpAttempts + 1;
+  setOtpAttempts(newAttempts);
 
-    // 🔴 Immediately invalidate OTP
+  toast.error("Invalid OTP");
+
+  if (newAttempts >= OTP_MAX_ATTEMPTS) {
     setOtpSent(false);
     setGeneratedOtp("");
     setEnteredOtp("");
     setOtpTimer(0);
-    setResendTimer(0);
-
-    return;
+    setResendTimer(60);
   }
+
+  return;
+}
+
 
   // ✅ Correct OTP
   setEmailVerified(true);
@@ -179,11 +235,37 @@ const verifyOtp = () => {
   }, []);
 
   const handleStateChange = async (e) => {
-    const s = states.find((x) => x.name === e.target.value);
-    if (!s) return;
-    setFormData({ ...formData, state: s.name, stateIso: s.iso2, district: "" });
-    setDistricts(await getDistrictsOfState(s.iso2));
-  };
+  const stateName = e.target.value;
+  const s = states.find((x) => x.name === stateName);
+  if (!s) return;
+
+  setFormData((prev) => ({
+    ...prev,
+    state: stateName,
+    stateIso: s.iso2,
+    district: ""
+  }));
+
+  const data = await getDistrictsOfState(s.iso2);
+  console.log("RAW DISTRICTS:", data);
+
+  let finalDistricts = data;
+
+  if (stateName === "Maharashtra") {
+    finalDistricts = data
+      .map(d => {
+        const key = normalize(d.name);
+        const nameWithAlias = DISTRICT_ALIASES[key] || d.name;
+        return { ...d, name: nameWithAlias };
+      })
+      .filter(d =>
+        MAHARASHTRA_DISTRICTS.some(md => normalize(md) === normalize(d.name))
+      );
+  }
+
+  setDistricts(finalDistricts);
+};
+
 
   /* ================= PASSWORD STRENGTH ================= */
   const passwordStrength = () => {
@@ -283,8 +365,10 @@ const handleRegister = async () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="relative bg-white w-[95%] max-w-md rounded-lg shadow-lg max-h-[90vh] overflow-hidden">
         {/* Scrollable content */}
-        <div className="p-5 max-h-[90vh] overflow-y-auto no-scrollbar">
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
 
+        <div className="p-5 max-h-[90vh] overflow-y-auto no-scrollbar">
+           
           <button
           type="button"
             onClick={onClose}
@@ -302,88 +386,155 @@ const handleRegister = async () => {
 
           {!success ? (
             <>
-              <input className={fieldStyle} placeholder="First Name" onChange={e => setFormData({ ...formData, firstName: e.target.value })} />
-              <input className={fieldStyle} placeholder="Middle Name" onChange={e => setFormData({ ...formData, middleName: e.target.value })} />
-              <input className={fieldStyle} placeholder="Last Name" onChange={e => setFormData({ ...formData, lastName: e.target.value })} />
+              <TextField
+  label="First Name"
+  fullWidth
+  sx={muiFieldStyle}
+  value={formData.firstName}
+  onChange={(e) =>
+    setFormData({ ...formData, firstName: e.target.value })
+  }
+/>
 
-              <select className={fieldStyle} onChange={e => setFormData({ ...formData, gender: e.target.value })}>
-                <option value="">Select Gender</option>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
-              </select>
+
+              <TextField
+  label="Middle Name"
+  fullWidth
+  sx={muiFieldStyle}
+  value={formData.middleName}
+  onChange={(e) =>
+    setFormData({ ...formData, middleName: e.target.value })
+  }
+/>
+
+              <TextField
+  label="Last Name"
+  fullWidth
+  sx={muiFieldStyle}
+  value={formData.lastName}
+  onChange={(e) =>
+    setFormData({ ...formData, lastName: e.target.value })
+  }
+/>
+
+             <TextField
+  select
+  label="Gender"
+  fullWidth
+  sx={muiFieldStyle}
+  value={formData.gender}
+  onChange={(e) =>
+    setFormData({ ...formData, gender: e.target.value })
+  }
+>
+  <MenuItem value="">Select Gender</MenuItem>
+  <MenuItem value="Male">Male</MenuItem>
+  <MenuItem value="Female">Female</MenuItem>
+  <MenuItem value="Other">Other</MenuItem>
+</TextField>
+
+
   <DatePicker
-  selected={dobDate}
+  label="Date of Birth"
+  value={dobDate}
   onChange={(date) => {
     setDobDate(date);
-
     if (date) {
-      const d = String(date.getDate()).padStart(2, "0");
-      const m = String(date.getMonth() + 1).padStart(2, "0");
-      const y = date.getFullYear();
-
-      setFormData({
-        ...formData,
-        dob: `${d}/${m}/${y}`, // ✅ 19/12/2002
-      });
+      const d = String(date.$D).padStart(2, "0");
+      const m = String(date.$M + 1).padStart(2, "0");
+      const y = date.$y;
+      setFormData({ ...formData, dob: `${d}/${m}/${y}` });
     }
   }}
-  placeholderText="Date of Birth"
-  className={fieldStyle}
-  wrapperClassName="w-full mb-3"
-  dateFormat="dd/MM/yyyy"   // ✅ DISPLAY
-  locale="en-GB"            // ✅ DAY FIRST
-  isClearable
+  slotProps={{
+    textField: {
+      fullWidth: true,
+      sx: muiFieldStyle
+    },
+  }}
 />
 
-<input
-  className={fieldStyle}
-  placeholder="Mobile Number"
+
+
+
+<TextField
+  label="Mobile Number"
+  fullWidth
+  sx={muiFieldStyle}
   value={formData.mobile}
-  maxLength={10} // restrict typing to 10 digits
+  inputProps={{ maxLength: 10 }}
   onChange={(e) => {
-    const value = e.target.value;
-
-    // Allow only digits
-    if (!/^\d*$/.test(value)) return;
-
-    setFormData({ ...formData, mobile: value });
-  }}
-  onBlur={() => {
-    // Validate on leaving the field
-    if (formData.mobile.length !== 10) {
-      toast.error("Mobile number must be exactly 10 digits");
-    }
+    if (!/^\d*$/.test(e.target.value)) return;
+    setFormData({ ...formData, mobile: e.target.value });
   }}
 />
 
-              <select className={fieldStyle} onChange={handleStateChange}>
-                <option value="">Select State</option>
-                {states.map(s => <option key={s.iso2}>{s.name}</option>)}
-              </select>
-              <select className={fieldStyle} onChange={e => setFormData({ ...formData, district: e.target.value })}>
-                <option value="">Select District</option>
-                {districts.map(d => <option key={d.id}>{d.name}</option>)}
-              </select>
 
-              <input className={fieldStyle} placeholder="Village" onChange={e => setFormData({ ...formData, village: e.target.value })} />
+              <TextField
+  select
+  label="State"
+  fullWidth
+  sx={muiFieldStyle}
+  value={formData.state}
+  onChange={handleStateChange}
+>
+  <MenuItem value="">Select State</MenuItem>
+  {states.map((s) => (
+    <MenuItem key={s.iso2} value={s.name}>
+      {s.name}
+    </MenuItem>
+  ))}
+</TextField>
+
+            <TextField
+  select
+  label="District"
+  fullWidth
+  sx={muiFieldStyle}
+  value={formData.district}
+  onChange={(e) =>
+    setFormData({ ...formData, district: e.target.value })
+  }
+>
+  <MenuItem value="">Select District</MenuItem>
+  {districts.map((d) => (
+    <MenuItem key={d.name} value={d.name}>
+
+      {d.name}
+    </MenuItem>
+  ))}
+</TextField>
+
+
+
+              <TextField
+  label="Village"
+  fullWidth
+  sx={muiFieldStyle}
+  value={formData.village}
+  onChange={(e) =>
+    setFormData({ ...formData, village: e.target.value })
+  }
+/>
+
 
               {/* OTP Section */}
               <div className="mb-3">
-                <input
-                  className={fieldStyle}
-                  placeholder="Email Address"
-                  value={formData.email}
-                  disabled={otpSent || emailVerified}
+                <TextField
+  label="Email Address"
+  fullWidth
+  sx={muiFieldStyle}
+  disabled={otpSent || emailVerified}
+  value={formData.email}
+  onChange={(e) => {
+    setFormData({ ...formData, email: e.target.value });
+    setOtpSent(false);
+    setEnteredOtp("");
+    setEmailVerified(false);
+    setOtpAttempts(0);
+  }}
+/>
 
-                  onChange={e => {
-                    setFormData({ ...formData, email: e.target.value });
-                    setOtpSent(false);
-                    setEnteredOtp("");
-                    setEmailVerified(false);
-                    setOtpAttempts(0);
-                  }}
-                />
 
                 <button
                 type="button"
@@ -402,12 +553,15 @@ const handleRegister = async () => {
     : "Send Email OTP"}
 </button>
 
-                <input
-                  className={fieldStyle}
-                  placeholder="Enter OTP"
-                  value={enteredOtp}
-                  onChange={(e) => setEnteredOtp(e.target.value)}
-                />
+                <TextField
+  label="Enter OTP"
+  fullWidth
+  sx={muiFieldStyle}
+  disabled={otpLocked}
+  value={enteredOtp}
+  onChange={(e) => setEnteredOtp(e.target.value)}
+/>
+
                 <button
                 type="button"
                   onClick={verifyOtp}
@@ -427,8 +581,28 @@ const handleRegister = async () => {
                 )}
               </div>
 
-              <input type={showPassword ? "text" : "password"} className={fieldStyle} placeholder="Password" onChange={e => setFormData({ ...formData, password: e.target.value })} />
-              <input type="password" className={fieldStyle} placeholder="Confirm Password" onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })} />
+              <TextField
+  label="Password"
+  type="password"
+  fullWidth
+  sx={muiFieldStyle}
+  onChange={(e) =>
+    setFormData({ ...formData, password: e.target.value })
+  }
+/>
+
+
+              <TextField
+  label="Confirm Password"
+  type="password"
+  fullWidth
+  sx={muiFieldStyle}
+  onChange={(e) =>
+    setFormData({ ...formData, confirmPassword: e.target.value })
+  }
+/>
+
+
 
               <button onClick={handleRegister} className="w-full bg-orange-500 text-white py-3 rounded-xl mt-2">
                 Register
@@ -439,11 +613,18 @@ const handleRegister = async () => {
               <h2 className="text-orange-600 font-semibold text-lg">Registration Successful</h2>
               <p>{registeredEmail}</p>
             </div>
+            
           )}
+          
+          
         </div>
+         </LocalizationProvider>
       </div>
+      
     </div>
+   
   );
+  
 };
 
 export default Register;
