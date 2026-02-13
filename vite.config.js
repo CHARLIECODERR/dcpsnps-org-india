@@ -3,11 +3,17 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+
+optimizeDeps: {
+  include: ['@mui/x-date-pickers/DatePicker', '@mui/x-date-pickers/AdapterDayjs']
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    
 
     // ✅ PWA PLUGIN (THIS WAS MISSING)
     VitePWA({
