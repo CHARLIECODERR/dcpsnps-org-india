@@ -32,7 +32,7 @@ const normalize = (str) =>
   "buldhana": "Buldhana",    // correct spelling
   "mumbai": "Mumbai City",
   "raigad": "Raigad",        // correct spelling
-  
+  "mumbaisuburban": "Mumbai Suburban"
 };
 
 
