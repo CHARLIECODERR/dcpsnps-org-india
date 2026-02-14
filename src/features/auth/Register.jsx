@@ -148,9 +148,14 @@ const [dobDate, setDobDate] = useState(null);
     Math.floor(100000 + Math.random() * 900000).toString();
 
  const sendEmailOtp = async () => {
-  setOtpLocked(false); // 🔓 UNLOCK OTP on resend
+  if (otpSent && otpTimer > 0 && !otpLocked) {
+    // OTP is still valid, do nothing
+    toast.info(`OTP already sent. Please wait ${otpTimer}s`);
+    return;
+  }
 
-   setEmailVerified(false);
+  setOtpLocked(false); // 🔓 UNLOCK OTP on resend
+  setEmailVerified(false);
   setEnteredOtp("");
 
   // 🔴 Check ALL required fields before OTP
@@ -179,8 +184,10 @@ const [dobDate, setDobDate] = useState(null);
   const otp = generateOtp();
   setGeneratedOtp(otp);
   setOtpSent(true);
-  setOtpTimer(OTP_EXPIRY_TIME);
   setOtpAttempts(0);
+
+  // Only start timer if OTP is new
+  setOtpTimer(OTP_EXPIRY_TIME);
   setResendTimer(60);
 
   try {
@@ -195,6 +202,7 @@ const [dobDate, setDobDate] = useState(null);
     toast.error("Failed to send OTP");
   }
 };
+
 
 
 
@@ -235,7 +243,7 @@ const verifyOtp = () => {
     getStatesOfIndia().then(setStates);
   }, []);
 
-  const handleStateChange = async (e) => {
+ const handleStateChange = async (e) => {
   const stateName = e.target.value;
   const s = states.find((x) => x.name === stateName);
   if (!s) return;
@@ -256,19 +264,20 @@ const verifyOtp = () => {
     return { ...d, name: aliasName };
   });
 
-  // Filter only Maharashtra districts
-  finalDistricts = finalDistricts.filter(d =>
-    MAHARASHTRA_DISTRICTS.some(md => md.toLowerCase() === d.name.toLowerCase())
-  );
+  // ✅ If state is Maharashtra, filter to known districts and force add missing
+  if (stateName.toLowerCase() === "maharashtra") {
+    finalDistricts = finalDistricts.filter(d =>
+      MAHARASHTRA_DISTRICTS.some(md => md.toLowerCase() === d.name.toLowerCase())
+    );
 
-  // Force add Buldhana and Raigad if missing
-  ["Buldhana", "Raigad"].forEach(dName => {
-    if (!finalDistricts.some(d => d.name.toLowerCase() === dName.toLowerCase())) {
-      finalDistricts.push({ name: dName });
-    }
-  });
+    ["Buldhana", "Raigad"].forEach(dName => {
+      if (!finalDistricts.some(d => d.name.toLowerCase() === dName.toLowerCase())) {
+        finalDistricts.push({ name: dName });
+      }
+    });
+  }
 
-  // 🔹 Sort alphabetically, normalize for comparison
+  // Sort alphabetically
   finalDistricts.sort((a, b) => a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase()));
 
   setDistricts(finalDistricts);
