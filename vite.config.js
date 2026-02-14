@@ -3,19 +3,10 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-
-optimizeDeps: {
-  include: ['@mui/x-date-pickers/DatePicker', '@mui/x-date-pickers/AdapterDayjs']
-}
-
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    
-
-    // ✅ PWA PLUGIN (THIS WAS MISSING)
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icons/icon-192.png", "icons/icon-512.png"],
@@ -43,26 +34,15 @@ export default defineConfig({
     }),
   ],
 
-  // ✅ YOUR BUILD OPTIMIZATION (UNCHANGED)
+  optimizeDeps: {
+    include: [
+      "@mui/x-date-pickers/DatePicker",
+      "@mui/x-date-pickers/AdapterDayjs",
+    ],
+  },
+
+  // 🔥 SIMPLE BUILD (NO manualChunks)
   build: {
-    chunkSizeWarningLimit: 800,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("firebase")) return "firebase-vendor";
-            if (id.includes("react-router-dom")) return "router-vendor";
-            if (id.includes("react") || id.includes("react-dom"))
-              return "react-vendor";
-            if (id.includes("@emailjs") || id.includes("emailjs"))
-              return "emailjs-vendor";
-            if (id.includes("react-icons") || id.includes("@heroicons"))
-              return "icons-vendor";
-            if (id.includes("react-toastify")) return "toastify-vendor";
-            return "vendor";
-          }
-        },
-      },
-    },
+    chunkSizeWarningLimit: 1500,
   },
 });
