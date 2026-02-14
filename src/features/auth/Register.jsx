@@ -27,12 +27,13 @@ const normalize = (str) =>
     .replace("district", "")
     .replace(/\s+/g, "")
     .trim();
-
-  const DISTRICT_ALIASES = {
-  "buldhana": "Buldhana",    // correct spelling
-  "mumbai": "Mumbai City",
-  "raigad": "Raigad",        // correct spelling
-  "mumbaisuburban": "Mumbai Suburban"
+const DISTRICT_ALIASES = {
+  buldhana: "Buldhana",
+  raigad: "Raigad",
+  mumbai: "Mumbai City",
+  mumbaisuburban: "Mumbai Suburban",
+  "mumbai city": "Mumbai City",
+  "mumbai suburban": "Mumbai Suburban"
 };
 
 
@@ -246,23 +247,29 @@ const verifyOtp = () => {
     district: ""
   }));
 
-  const data = await getDistrictsOfState(s.iso2);
-  console.log("RAW DISTRICTS:", data);
+  let data = await getDistrictsOfState(s.iso2);
 
-  let finalDistricts = data;
+  // Normalize API district names
+  let finalDistricts = data.map(d => {
+    const key = d.name.toLowerCase().replace("district", "").replace(/\s+/g, "").trim();
+    const aliasName = DISTRICT_ALIASES[key] || d.name.trim();
+    return { ...d, name: aliasName };
+  });
 
-  if (stateName === "Maharashtra") {
-    finalDistricts = data
-  .map(d => {
-    const key = normalize(d.name);
-    const nameWithAlias = DISTRICT_ALIASES[key] || d.name;
-    return { ...d, name: nameWithAlias };
-  })
-  .filter(d =>
-    MAHARASHTRA_DISTRICTS.some(md => normalize(md) === normalize(d.name))
+  // Filter only Maharashtra districts
+  finalDistricts = finalDistricts.filter(d =>
+    MAHARASHTRA_DISTRICTS.some(md => md.toLowerCase() === d.name.toLowerCase())
   );
 
-  }
+  // Force add Buldhana and Raigad if missing
+  ["Buldhana", "Raigad"].forEach(dName => {
+    if (!finalDistricts.some(d => d.name.toLowerCase() === dName.toLowerCase())) {
+      finalDistricts.push({ name: dName });
+    }
+  });
+
+  // 🔹 Sort alphabetically, normalize for comparison
+  finalDistricts.sort((a, b) => a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase()));
 
   setDistricts(finalDistricts);
 };
