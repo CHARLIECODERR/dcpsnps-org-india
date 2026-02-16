@@ -351,7 +351,7 @@ const handleRegister = async () => {
       createdAt: Date.now(),
     });
 
-    await signOut(auth);
+    
     setRegisteredEmail(formData.email);
     setSuccess(true);
 
@@ -379,15 +379,13 @@ const handleRegister = async () => {
 
   /* ================= UI ================= */
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="relative bg-white w-[95%] max-w-md rounded-lg shadow-lg max-h-[90vh] overflow-hidden">
-        {/* Scrollable content */}
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div className="relative bg-white w-[95%] max-w-md rounded-lg shadow-lg max-h-[90vh] overflow-hidden">
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
         <div className="p-5 max-h-[90vh] overflow-y-auto no-scrollbar">
-           
+          
           <button
-          type="button"
+            type="button"
             onClick={onClose}
             className="absolute top-4 right-4 text-xl text-gray-400 hover:text-red-500"
           >
@@ -398,11 +396,15 @@ const handleRegister = async () => {
             <img src={logo} alt="logo" className="h-12" />
           </div>
 
-          <h2 className="text-xl font-semibold text-center mb-4">User Registration</h2>
-          <p className="text-center text-gray-500 text-sm mb-6">Create your account</p>
-
           {!success ? (
             <>
+              {/* 🔽 ONLY SHOW WHEN NOT SUCCESS */}
+              <h2 className="text-xl font-semibold text-center mb-4">
+                User Registration
+              </h2>
+              <p className="text-center text-gray-500 text-sm mb-6">
+                Create your account
+              </p>
               <TextField
   label="First Name"
   fullWidth
@@ -626,17 +628,29 @@ const handleRegister = async () => {
               </button>
             </>
           ) : (
-            <div className="text-center py-10">
-              <h2 className="text-orange-600 font-semibold text-lg">Registration Successful</h2>
-              <p>{registeredEmail}</p>
-            </div>
-            
+          <div className="text-center py-6 px-4 flex flex-col items-center gap-2">
+    <h2 className="text-orange-600 font-semibold text-xl mb-2">
+      Congratulations, {formData.firstName} {formData.middleName} {formData.lastName} 🎉
+    </h2>
+
+    <p className="text-gray-600 text-sm">
+      Your account has been created successfully.
+    </p>
+    <p className="text-gray-600 text-sm mb-4">
+      You can now access your profile and services.
+    </p>
+
+    <button
+      onClick={onClose}
+      className="w-full bg-orange-500 text-white py-2 rounded-lg"
+    >
+      Back to Home
+    </button>
+  </div>
           )}
-          
-          
         </div>
-         </LocalizationProvider>
-      </div>
+      </LocalizationProvider>
+    </div>
       
     </div>
    

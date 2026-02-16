@@ -101,3 +101,37 @@ body.modal-open {
   background: #d1d5db;
   border-radius: 6px;
 }
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container input {
+  width: 100%;
+  height: 42px;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.react-datepicker__input-container input:focus {
+  outline: none;
+  border-color: #f97316; /* orange-500 */
+  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.5);
+}
+
+
+.react-datepicker__close-icon {
+  display: none;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #fb923c; /* soft orange */
+}
