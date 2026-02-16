@@ -628,29 +628,30 @@ const handleRegister = async () => {
               </button>
             </>
           ) : (
-          <div className="text-center py-6 px-4 flex flex-col items-center">
-  {/* Logo */}
-  <img src={logo} alt="logo" className="h-10 mb-4" />
+          <div className="text-center py-6 px-4 flex flex-col items-center gap-3">
+    {/* Removed extra logo from success screen */}
 
-  {/* Congratulations with emoji inline */}
-  <h2 className="text-orange-600 font-semibold text-xl mb-2">
-    Congratulations, {formData.firstName} {formData.middleName} {formData.lastName} <span>🎉</span>
-  </h2>
+    {/* Congratulations with emoji inline */}
+    <h2 className="text-orange-600 font-semibold text-2xl mb-2">
+      Congratulations, {formData.firstName} {formData.middleName} {formData.lastName}{" "}
+      <span className="align-middle text-2xl">🎉</span>
+    </h2>
 
-  <p className="text-gray-600 text-sm mb-1">
-    Your account has been created successfully.
-  </p>
-  <p className="text-gray-600 text-sm mb-4">
-    You can now access your profile and services.
-  </p>
+    <p className="text-gray-600 text-sm">
+      Your account has been created successfully.
+    </p>
+    <p className="text-gray-600 text-sm">
+      You can now access your profile and services.
+    </p>
 
-  <button
-    onClick={onClose}
-    className="w-full bg-orange-500 text-white py-2 rounded-lg"
-  >
-    Back to Home
-  </button>
-</div>
+    <button
+      onClick={onClose}
+      className="w-full bg-orange-500 text-white py-3 rounded-lg mt-4 hover:bg-orange-600 transition-colors"
+    >
+      Back to Home
+    </button>
+  </div>
+
 
           )}
         </div>
