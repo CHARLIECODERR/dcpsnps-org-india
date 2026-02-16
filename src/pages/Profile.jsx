@@ -216,19 +216,25 @@ export default function Profile() {
 />
 
 
-              {/* Mobile */}
-              <TextField
-                label="Mobile"
-                fullWidth
-                sx={muiStyle}
-                value={userData.mobile}
-                onChange={(e) =>
-                  setUserData((prev) => ({
-                    ...prev,
-                    mobile: e.target.value,
-                  }))
-                }
-              />
+             {/* Mobile */}
+<TextField
+  label="Mobile"
+  fullWidth
+  sx={muiStyle}
+  value={userData.mobile}
+  onChange={(e) => {
+    // Only allow numbers, max 10 digits
+    const val = e.target.value.replace(/\D/g, ""); // remove non-digits
+    if (val.length <= 10) {
+      setUserData((prev) => ({
+        ...prev,
+        mobile: val,
+      }));
+    }
+  }}
+  inputProps={{ maxLength: 10 }}
+/>
+
 
               {/* State */}
               <TextField
