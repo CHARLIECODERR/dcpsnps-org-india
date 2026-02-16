@@ -70,14 +70,45 @@ export default function Profile() {
   }, []);
 
   // Load districts when state changes
-  useEffect(() => {
-    if (userData?.state) {
-      const s = states.find((x) => x.name === userData.state);
-      if (s) {
-        getDistrictsOfState(s.iso2).then(setDistricts);
-      }
+ useEffect(() => {
+  const loadDistricts = async () => {
+    if (!userData?.state) return;
+    const s = states.find((x) => x.name === userData.state);
+    if (!s) return;
+
+    let data = await getDistrictsOfState(s.iso2);
+
+    // Normalize district names using aliases
+    let finalDistricts = data.map(d => {
+      const key = d.name.toLowerCase().replace("district", "").replace(/\s+/g, "").trim();
+      return { ...d, name: DISTRICT_ALIASES[key] || d.name.trim() };
+    });
+
+    // If Maharashtra, filter to only 36 predefined districts
+    if (userData.state.toLowerCase() === "maharashtra") {
+      finalDistricts = finalDistricts.filter(d =>
+        MAHARASHTRA_DISTRICTS.some(md => md.toLowerCase() === d.name.toLowerCase())
+      );
+
+      // Ensure Buldhana & Raigad always included
+      ["Buldhana", "Raigad"].forEach(dName => {
+        if (!finalDistricts.some(d => d.name.toLowerCase() === dName.toLowerCase())) {
+          finalDistricts.push({ name: dName });
+        }
+      });
     }
-  }, [userData?.state, states]);
+
+    // Sort alphabetically
+    finalDistricts.sort((a, b) =>
+      a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase())
+    );
+
+    setDistricts(finalDistricts);
+  };
+
+  loadDistricts();
+}, [userData?.state, states]);
+
 
   if (!userData) return null;
 
