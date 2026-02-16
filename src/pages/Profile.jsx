@@ -12,6 +12,28 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import dayjs from "dayjs";
 
+const DISTRICT_ALIASES = {
+  buldhana: "Buldhana",
+  raigad: "Raigad",
+  mumbai: "Mumbai City",
+  mumbaisuburban: "Mumbai Suburban",
+  "mumbai city": "Mumbai City",
+  "mumbai suburban": "Mumbai Suburban"
+};
+
+const MAHARASHTRA_DISTRICTS = [
+  "Ahmednagar", "Akola", "Amravati", "Aurangabad",
+  "Beed", "Bhandara", "Buldhana", "Chandrapur",
+  "Dhule", "Gadchiroli", "Gondia", "Hingoli",
+  "Jalgaon", "Jalna", "Kolhapur", "Latur",
+  "Mumbai City", "Mumbai Suburban", "Nagpur",
+  "Nanded", "Nandurbar", "Nashik", "Osmanabad",
+  "Palghar", "Parbhani", "Pune", "Raigad",
+  "Ratnagiri", "Sangli", "Satara", "Sindhudurg",
+  "Solapur", "Thane", "Wardha", "Washim",
+  "Yavatmal"
+];
+
 export default function Profile() {
   const [userData, setUserData] = useState(null);
   const [editMode, setEditMode] = useState(false);
@@ -185,18 +207,46 @@ export default function Profile() {
                 sx={muiStyle}
                 value={userData.state}
                 onChange={async (e) => {
-                  const stateName = e.target.value;
-                  const s = states.find((x) => x.name === stateName);
-                  setUserData((prev) => ({
-                    ...prev,
-                    state: stateName,
-                    district: "",
-                  }));
-                  if (s) {
-                    const d = await getDistrictsOfState(s.iso2);
-                    setDistricts(d);
-                  }
-                }}
+  const stateName = e.target.value;
+  const s = states.find((x) => x.name === stateName);
+  setUserData((prev) => ({
+    ...prev,
+    state: stateName,
+    district: "", // reset district
+  }));
+
+  if (s) {
+    let data = await getDistrictsOfState(s.iso2);
+
+    // Normalize district names using aliases
+    let finalDistricts = data.map(d => {
+      const key = d.name.toLowerCase().replace("district", "").replace(/\s+/g, "").trim();
+      return { ...d, name: DISTRICT_ALIASES[key] || d.name.trim() };
+    });
+
+    // ✅ If Maharashtra, filter to only 36 predefined districts
+    if (stateName.toLowerCase() === "maharashtra") {
+      finalDistricts = finalDistricts.filter(d =>
+        MAHARASHTRA_DISTRICTS.some(md => md.toLowerCase() === d.name.toLowerCase())
+      );
+
+      // Ensure Buldhana & Raigad always included
+      ["Buldhana", "Raigad"].forEach(dName => {
+        if (!finalDistricts.some(d => d.name.toLowerCase() === dName.toLowerCase())) {
+          finalDistricts.push({ name: dName });
+        }
+      });
+    }
+
+    // Sort alphabetically
+    finalDistricts.sort((a, b) =>
+      a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase())
+    );
+
+    setDistricts(finalDistricts);
+  }
+}}
+
               >
                 {states.map((s) => (
                   <MenuItem key={s.iso2} value={s.name}>
