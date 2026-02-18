@@ -190,15 +190,18 @@ export default function MyPosts() {
               <div key={post.id} className="bg-gray-100 rounded-lg shadow-md p-6 mb-6">
                 {/* Post Header */}
                 <div className="flex items-center gap-3 mb-4">
-                  {post.photoURL ? (
-                    <img
-                      src={post.photoURL}
-                      alt="avatar"
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <FaUserCircle className="w-10 h-10 text-gray-400" />
-                  )}
+                  {post.photoURL && post.photoURL !== "/default-avatar.png" ? (
+  <img
+    src={post.photoURL}
+    alt="avatar"
+    className="w-10 h-10 rounded-full object-cover"
+  />
+) : (
+  <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">
+    {(post.username || "A")[0].toUpperCase()}
+  </div>
+)}
+
                   <div>
                     <p className="font-semibold text-gray-500">{post.username || "Anonymous"}</p>
                     <p className="text-sm text-gray-500">
@@ -422,15 +425,18 @@ export default function MyPosts() {
 
                         return (
                           <div key={cid} className="bg-gray-200 p-3 rounded-lg flex gap-2">
-                            {c.photoURL ? (
-                              <img
-                                src={c.photoURL}
-                                alt="comment-avatar"
-                                className="w-8 h-8 rounded-full object-cover"
-                              />
-                            ) : (
-                              <FaUserCircle className="w-8 h-8 text-gray-400" />
-                            )}
+                            {c.photoURL && c.photoURL !== "/default-avatar.png" ? (
+  <img
+    src={c.photoURL}
+    alt="comment-avatar"
+    className="w-8 h-8 rounded-full object-cover"
+  />
+) : (
+  <div className="w-8 h-8 rounded-full bg-gray-500 text-white flex items-center justify-center font-bold text-sm">
+    {(c.username || "A")[0].toUpperCase()}
+  </div>
+)}
+
                             <div className="flex-1">
                               <p className="font-semibold text-sm text-gray-400">{c.username}</p>
                               {isEditing ? (
