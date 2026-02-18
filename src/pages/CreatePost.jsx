@@ -2,9 +2,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiImage, FiVideo, FiX } from "react-icons/fi";
-import { auth, db, storage } from "../services/firebase";
-import { ref, push, serverTimestamp,get } from "firebase/database";
-import { ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { auth, db } from "../services/firebase";
+import { ref, push, serverTimestamp, get } from "firebase/database";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -18,38 +17,34 @@ export default function Create() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (u) => {
+      if (!u) {
+        setUser(null);
+        return;
+      }
 
-
-
-useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged(async (u) => {
-    if (!u) {
-      setUser(null);
-      return;
-    }
-
-    try {
-      const snap = await get(ref(db, "users/" + u.uid));
-      if (snap.exists()) {
-        setUser({
-          ...u,
-          username: snap.val().username,   // ✅ store DB username
-          photoURL: snap.val().photoURL || "/default-avatar.png",
-        });
-      } else {
+      try {
+        const snap = await get(ref(db, "users/" + u.uid));
+        if (snap.exists()) {
+          setUser({
+            ...u,
+            username: snap.val().username,
+            photoURL: snap.val().photoURL || "/default-avatar.png",
+          });
+        } else {
+          setUser({ ...u, username: u.displayName || "Anonymous" });
+        }
+      } catch (err) {
+        console.error("Failed to fetch user profile:", err);
         setUser({ ...u, username: u.displayName || "Anonymous" });
       }
-    } catch (err) {
-      console.error("Failed to fetch user profile:", err);
-      setUser({ ...u, username: u.displayName || "Anonymous" });
-    }
-  });
+    });
 
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, []);
 
-
-  // Word limit helper
+  // Limit words to max count
   const limitWords = (text, limit) => {
     const words = text.split(/\s+/).filter(Boolean);
     if (words.length > limit) {
@@ -58,7 +53,6 @@ useEffect(() => {
     return text;
   };
 
-  // Handle file selection
   const handleFileChange = (e, type) => {
     const file = e.target.files[0];
     if (file) {
@@ -68,20 +62,20 @@ useEffect(() => {
     }
   };
 
-  // Remove media
   const removeMedia = () => {
     setMediaFile(null);
     setMediaPreview(null);
     setMediaType("");
   };
 
-  // Handle Publish
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!user) {
       toast.error("You must be logged in to post!");
       return;
     }
+
     if (!title.trim() || !content.trim()) {
       toast.error("Title and Description are required!");
       return;
@@ -90,28 +84,48 @@ useEffect(() => {
     setLoading(true);
 
     let mediaURL = "";
+
     try {
+      // ✅ Cloudinary Upload
       if (mediaFile) {
-        const fileRef = sRef(
-          storage,
-          `posts/${user.uid}/${Date.now()}-${mediaFile.name}`
-        );
-        await uploadBytes(fileRef, mediaFile);
-        mediaURL = await getDownloadURL(fileRef);
+        const data = new FormData();
+        data.append("file", mediaFile);
+        data.append("upload_preset", "dcps_posts"); // your preset
+
+        const cloudName = "dv4h0cn9d"; // ⚠️ change this
+
+        const uploadURL =
+          mediaType === "image"
+            ? `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`
+            : `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
+
+        const res = await fetch(uploadURL, {
+          method: "POST",
+          body: data,
+        });
+
+        const fileData = await res.json();
+
+        if (!res.ok) {
+          throw new Error(fileData.error?.message || "Upload failed");
+        }
+
+        mediaURL = fileData.secure_url;
       }
 
+      // ✅ Save to Firebase Database
       await push(ref(db, "posts"), {
         title: limitWords(title, 60),
         content: limitWords(content, 60),
         mediaURL,
         mediaType,
         userId: user.uid,
-        username: user.username || "Anonymous",
+        username: user.username || user.displayName || "Anonymous",
+
         photoURL: user.photoURL || "/default-avatar.png",
         createdAt: serverTimestamp(),
       });
 
-      // Reset form
       setTitle("");
       setContent("");
       removeMedia();
@@ -143,7 +157,9 @@ useEffect(() => {
       className="min-h-screen pt-24 px-4 mt-10"
     >
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
-        <h1 className="text-2xl font-bold mb-2 text-gray-600">Create New Post</h1>
+        <h1 className="text-2xl font-bold mb-2 text-gray-600">
+          Create New Post
+        </h1>
         <p className="text-gray-600 mb-6">
           Share your thoughts, ideas, or feedback with the community.
         </p>
@@ -164,7 +180,7 @@ useEffect(() => {
             </p>
           </div>
 
-          {/* Description */}
+          {/* Content */}
           <div>
             <textarea
               placeholder="What's on your mind? (Max 60 words)"
@@ -227,7 +243,7 @@ useEffect(() => {
             </label>
           </div>
 
-          {/* Submit Button */}
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
@@ -240,7 +256,6 @@ useEffect(() => {
         </form>
       </div>
 
-      {/* Toast Notification */}
       <ToastContainer position="bottom-right" autoClose={3000} />
     </div>
   );

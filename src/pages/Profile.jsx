@@ -12,345 +12,223 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import dayjs from "dayjs";
 
-const DISTRICT_ALIASES = {
-  buldhana: "Buldhana",
-  raigad: "Raigad",
-  mumbai: "Mumbai City",
-  mumbaisuburban: "Mumbai Suburban",
-  "mumbai city": "Mumbai City",
-  "mumbai suburban": "Mumbai Suburban"
-};
-
+/* Maharashtra districts */
 const MAHARASHTRA_DISTRICTS = [
-  "Ahmednagar", "Akola", "Amravati", "Aurangabad",
-  "Beed", "Bhandara", "Buldhana", "Chandrapur",
-  "Dhule", "Gadchiroli", "Gondia", "Hingoli",
-  "Jalgaon", "Jalna", "Kolhapur", "Latur",
-  "Mumbai City", "Mumbai Suburban", "Nagpur",
-  "Nanded", "Nandurbar", "Nashik", "Osmanabad",
-  "Palghar", "Parbhani", "Pune", "Raigad",
-  "Ratnagiri", "Sangli", "Satara", "Sindhudurg",
-  "Solapur", "Thane", "Wardha", "Washim",
-  "Yavatmal"
+  "Ahmednagar","Akola","Amravati","Chhatrapati Sambhajinagar",
+  "Beed","Bhandara","Buldhana","Chandrapur","Dhule",
+  "Gadchiroli","Gondia","Hingoli","Jalgaon","Jalna",
+  "Kolhapur","Latur","Mumbai City","Mumbai Suburban",
+  "Nagpur","Nanded","Nandurbar","Nashik","Dharashiv",
+  "Palghar","Parbhani","Pune","Raigad","Ratnagiri",
+  "Sangli","Satara","Sindhudurg","Solapur","Thane",
+  "Wardha","Washim","Yavatmal"
 ];
 
 export default function Profile() {
   const [userData, setUserData] = useState(null);
   const [editMode, setEditMode] = useState(false);
-
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [dobDate, setDobDate] = useState(null);
 
   const navigate = useNavigate();
 
-  // Load profile
+  /* Load user */
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         navigate("/");
         return;
       }
-
       const snap = await get(ref(db, "users/" + user.uid));
       if (snap.exists()) {
-        const data = snap.val();
-        setUserData(data);
-        if (data.dob) {
-          setDobDate(dayjs(data.dob, "DD/MM/YYYY"));
+        setUserData(snap.val());
+        if (snap.val().dob) {
+          setDobDate(dayjs(snap.val().dob, "DD/MM/YYYY"));
         }
       }
     });
     return () => unsub();
   }, [navigate]);
 
-  // Load states
+  /* States */
   useEffect(() => {
     getStatesOfIndia().then(setStates);
   }, []);
 
-  // Load districts when state changes
- useEffect(() => {
-  const loadDistricts = async () => {
+  /* Districts */
+  useEffect(() => {
     if (!userData?.state) return;
+
+    if (userData.state.toLowerCase() === "maharashtra") {
+      setDistricts(
+        MAHARASHTRA_DISTRICTS
+          .map((d) => ({ name: d }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      );
+      return;
+    }
+
     const s = states.find((x) => x.name === userData.state);
     if (!s) return;
 
-    let data = await getDistrictsOfState(s.iso2);
-
-    // Normalize district names using aliases
-    let finalDistricts = data.map(d => {
-      const key = d.name.toLowerCase().replace("district", "").replace(/\s+/g, "").trim();
-      return { ...d, name: DISTRICT_ALIASES[key] || d.name.trim() };
-    });
-
-    // If Maharashtra, filter to only 36 predefined districts
-    if (userData.state.toLowerCase() === "maharashtra") {
-      finalDistricts = finalDistricts.filter(d =>
-        MAHARASHTRA_DISTRICTS.some(md => md.toLowerCase() === d.name.toLowerCase())
+    getDistrictsOfState(s.iso2).then((data) => {
+      setDistricts(
+        data
+          .map((d) => ({ name: d.name.replace("District", "").trim() }))
+          .sort((a, b) => a.name.localeCompare(b.name))
       );
-
-      // Ensure Buldhana & Raigad always included
-      ["Buldhana", "Raigad"].forEach(dName => {
-        if (!finalDistricts.some(d => d.name.toLowerCase() === dName.toLowerCase())) {
-          finalDistricts.push({ name: dName });
-        }
-      });
-    }
-
-    // Sort alphabetically
-    finalDistricts.sort((a, b) =>
-      a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase())
-    );
-
-    setDistricts(finalDistricts);
-  };
-
-  loadDistricts();
-}, [userData?.state, states]);
-
+    });
+  }, [userData?.state, states]);
 
   if (!userData) return null;
 
   const muiStyle = {
-    mb: 1.2,
+    mb: 1.5,
     "& .MuiOutlinedInput-root": {
-      borderRadius: "6px",
-      fontSize: "14px",
+      borderRadius: "10px",
       height: "44px",
     },
   };
 
-  // SAVE ONLY REQUIRED FIELDS
+  /* Save */
   const handleSave = async () => {
     try {
       const uid = auth.currentUser.uid;
       await update(ref(db, "users/" + uid), {
-        gender: userData.gender,
-        dob: userData.dob,
         mobile: userData.mobile,
         state: userData.state,
         district: userData.district,
         village: userData.village,
       });
-      toast.success("Profile updated");
+      toast.success("Profile updated successfully");
       setEditMode(false);
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Update failed");
     }
   };
 
   return (
-    <div className="min-h-screen bg-orange-50 flex justify-center items-center px-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow">
+    <div className="min-h-screen bg-[#F5F9EF] flex justify-center px-3 py-6 pt-24 md:pt-28">
+      <div className="w-full max-w-6xl bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row">
 
-        {/* HEADER */}
-        <div className="bg-orange-500 text-white p-4 text-center rounded-t-xl">
-          <div className="w-16 h-16 bg-white text-orange-500 rounded-full flex items-center justify-center text-2xl font-bold mx-auto">
-            {userData.fullName?.[0]?.toUpperCase()}
+        {/* LEFT */}
+        <div className="w-full lg:w-1/3 bg-[#E3ECD3] p-6 flex flex-row lg:flex-col items-center gap-4 lg:gap-6 border-b lg:border-b-0 lg:border-r">
+          <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-full bg-[#6E8F3D] flex items-center justify-center text-white text-3xl lg:text-4xl font-semibold">
+            {userData.fullName?.charAt(0).toUpperCase()}
           </div>
-          <h2 className="mt-2 font-semibold">{userData.fullName}</h2>
-          <p className="text-sm opacity-90">{userData.email}</p>
+
+          <div className="text-center">
+            <h3 className="font-semibold text-base lg:text-lg">
+              {userData.fullName}
+            </h3>
+            <p className="text-sm text-gray-600">User</p>
+          </div>
+
+          <button className="hidden lg:block w-full bg-[#8FAF5A] text-white py-2 rounded-lg font-medium">
+            Personal Information
+          </button>
         </div>
 
-        {/* VIEW MODE */}
-        {!editMode && (
-          <div className="p-4 text-sm space-y-2">
-            <Row label="Gender" value={userData.gender} />
-            <Row label="DOB" value={userData.dob} />
-            <Row label="Mobile" value={userData.mobile} />
-            <Row label="State" value={userData.state} />
-            <Row label="District" value={userData.district} />
-            <Row label="Village" value={userData.village} />
+        {/* RIGHT */}
+        <div className="w-full lg:w-2/3 p-5 lg:p-8">
+          <h2 className="text-lg lg:text-xl font-semibold mb-5">
+            Personal Information
+          </h2>
 
-            <button
-              onClick={() => setEditMode(true)}
-              className="w-full mt-4 bg-orange-500 text-white py-2 rounded-lg"
-            >
-              Edit Profile
-            </button>
-
-            <button
-              onClick={() => navigate(-1)}
-              className="w-full mt-2 border border-orange-400 text-orange-600 py-2 rounded-lg"
-            >
-              ← Go Back
-            </button>
-          </div>
-        )}
-
-        {/* EDIT MODE */}
-        {editMode && (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TextField label="Full Name" value={userData.fullName} disabled fullWidth sx={muiStyle} />
+              <TextField label="Email" value={userData.email} disabled fullWidth sx={muiStyle} />
 
-              {/* Name (disabled) */}
               <TextField
-                label="Full Name"
+                label="Mobile"
+                value={userData.mobile}
+                disabled={!editMode}
+                onChange={(e) => setUserData({ ...userData, mobile: e.target.value })}
                 fullWidth
                 sx={muiStyle}
-                value={userData.fullName}
-                disabled
               />
 
-              {/* Gender */}
-              <TextField
-  select
-  label="Gender"
-  fullWidth
-  sx={muiStyle}
-  value={userData.gender}
-  disabled   // 🔒 locked
-/>
-
-
-              {/* DOB */}
               <DatePicker
-  label="DOB"
-  value={dobDate}
-  disabled   // 🔒 locked
-  slotProps={{
-    textField: { fullWidth: true, sx: muiStyle },
-  }}
-/>
+                label="Date of Birth"
+                value={dobDate}
+                disabled
+                slotProps={{ textField: { fullWidth: true, sx: muiStyle } }}
+              />
 
-
-             {/* Mobile */}
-<TextField
-  label="Mobile"
-  fullWidth
-  sx={muiStyle}
-  value={userData.mobile}
-  onChange={(e) => {
-    // Only allow numbers, max 10 digits
-    const val = e.target.value.replace(/\D/g, ""); // remove non-digits
-    if (val.length <= 10) {
-      setUserData((prev) => ({
-        ...prev,
-        mobile: val,
-      }));
-    }
-  }}
-  inputProps={{ maxLength: 10 }}
-/>
-
-
-              {/* State */}
               <TextField
                 select
                 label="State"
+                value={userData.state}
+                disabled={!editMode}
+                onChange={(e) =>
+                  setUserData({ ...userData, state: e.target.value, district: "" })
+                }
                 fullWidth
                 sx={muiStyle}
-                value={userData.state}
-                onChange={async (e) => {
-  const stateName = e.target.value;
-  const s = states.find((x) => x.name === stateName);
-  setUserData((prev) => ({
-    ...prev,
-    state: stateName,
-    district: "", // reset district
-  }));
-
-  if (s) {
-    let data = await getDistrictsOfState(s.iso2);
-
-    // Normalize district names using aliases
-    let finalDistricts = data.map(d => {
-      const key = d.name.toLowerCase().replace("district", "").replace(/\s+/g, "").trim();
-      return { ...d, name: DISTRICT_ALIASES[key] || d.name.trim() };
-    });
-
-    // ✅ If Maharashtra, filter to only 36 predefined districts
-    if (stateName.toLowerCase() === "maharashtra") {
-      finalDistricts = finalDistricts.filter(d =>
-        MAHARASHTRA_DISTRICTS.some(md => md.toLowerCase() === d.name.toLowerCase())
-      );
-
-      // Ensure Buldhana & Raigad always included
-      ["Buldhana", "Raigad"].forEach(dName => {
-        if (!finalDistricts.some(d => d.name.toLowerCase() === dName.toLowerCase())) {
-          finalDistricts.push({ name: dName });
-        }
-      });
-    }
-
-    // Sort alphabetically
-    finalDistricts.sort((a, b) =>
-      a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase())
-    );
-
-    setDistricts(finalDistricts);
-  }
-}}
-
               >
                 {states.map((s) => (
-                  <MenuItem key={s.iso2} value={s.name}>
-                    {s.name}
-                  </MenuItem>
+                  <MenuItem key={s.iso2} value={s.name}>{s.name}</MenuItem>
                 ))}
               </TextField>
 
-              {/* District */}
               <TextField
                 select
                 label="District"
+                value={userData.district}
+                disabled={!editMode}
+                onChange={(e) =>
+                  setUserData({ ...userData, district: e.target.value })
+                }
                 fullWidth
                 sx={muiStyle}
-                value={userData.district}
-                onChange={(e) =>
-                  setUserData((prev) => ({
-                    ...prev,
-                    district: e.target.value,
-                  }))
-                }
               >
                 {districts.map((d) => (
-                  <MenuItem key={d.name} value={d.name}>
-                    {d.name}
-                  </MenuItem>
+                  <MenuItem key={d.name} value={d.name}>{d.name}</MenuItem>
                 ))}
               </TextField>
 
-              {/* Village */}
               <TextField
                 label="Village"
+                value={userData.village}
+                disabled={!editMode}
+                onChange={(e) =>
+                  setUserData({ ...userData, village: e.target.value })
+                }
                 fullWidth
                 sx={muiStyle}
-                value={userData.village}
-                onChange={(e) =>
-                  setUserData((prev) => ({
-                    ...prev,
-                    village: e.target.value,
-                  }))
-                }
               />
+            </div>
+
+            {/* BUTTONS */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+              {!editMode ? (
+                <button
+                  onClick={() => setEditMode(true)}
+                  className="bg-[#8FAF5A] hover:bg-[#7C9F4F] text-white px-6 py-2 rounded-lg w-full sm:w-auto"
+                >
+                  Edit Profile
+                </button>
+              ) : (
+                <button
+                  onClick={handleSave}
+                  className="bg-[#8FAF5A] hover:bg-[#7C9F4F] text-white px-6 py-2 rounded-lg w-full sm:w-auto"
+                >
+                  Save Changes
+                </button>
+              )}
 
               <button
-                onClick={handleSave}
-                className="w-full bg-orange-500 text-white py-2 rounded-lg mt-2"
+                onClick={() => navigate(-1)}
+                className="border border-gray-400 px-6 py-2 rounded-lg hover:bg-gray-50 w-full sm:w-auto"
               >
-                Save Changes
-              </button>
-
-              <button
-                onClick={() => setEditMode(false)}
-                className="w-full mt-2 border border-gray-300 py-2 rounded-lg"
-              >
-                Cancel
+                ← Back
               </button>
             </div>
           </LocalizationProvider>
-        )}
+        </div>
       </div>
     </div>
   );
 }
-
-const Row = ({ label, value }) => (
-  <div className="flex justify-between border-b py-1">
-    <span className="text-gray-500">{label}</span>
-    <span className="font-medium">{value || "N/A"}</span>
-  </div>
-);
