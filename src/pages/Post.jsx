@@ -19,8 +19,9 @@ export default function Post() {
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
   const [commentInput, setCommentInput] = useState({});
-
-  // 🔹 Listen auth (optional user)
+  const [usersData, setUsersData] = useState({});
+  
+  // 🔹 Listen auth
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => {
       setUser(u || null);
@@ -28,7 +29,7 @@ export default function Post() {
     return () => unsub();
   }, []);
 
-  // 🔹 Fetch posts (NO LOGIN REQUIRED)
+  // 🔹 Fetch posts (Realtime DB)
   useEffect(() => {
     const postsRef = ref(db, "posts");
     const unsub = onValue(postsRef, (snap) => {
@@ -49,6 +50,19 @@ export default function Post() {
 
     return () => unsub();
   }, []);
+
+  // 🔹 Fetch all users (for profile photo)
+useEffect(() => {
+  const usersRef = ref(db, "users");
+  const unsub = onValue(usersRef, (snap) => {
+    const data = snap.val();
+    if (data) {
+      setUsersData(data);
+    }
+  });
+
+  return () => unsub();
+}, []);
 
   // 🔒 Auth guard
   const requireLogin = () => {
@@ -84,7 +98,7 @@ export default function Post() {
     }
   };
 
-  // Comment
+  // Add Comment
   const addComment = async (postId) => {
     if (!user) return requireLogin();
     if (!commentInput[postId]?.trim()) return;
@@ -99,6 +113,17 @@ export default function Post() {
     setCommentInput({ ...commentInput, [postId]: "" });
   };
 
+   // Delete Comment
+const deleteComment = async (postId, commentId) => {
+  if (!user) return;
+
+  try {
+    await remove(ref(db, `posts/${postId}/comments/${commentId}`));
+    toast.success("Comment deleted");
+  } catch (err) {
+    toast.error("Failed to delete comment");
+  }
+};
   return (
     <>
       <Seo title="Community Feed" />
@@ -113,34 +138,37 @@ export default function Post() {
               ? Object.keys(post.likes).length
               : 0;
             const isLiked = user && post.likes?.[user.uid];
-            console.log(post);
-
 
             return (
               <div
                 key={post.id}
                 className="bg-gray-100 rounded-lg p-5 mb-6 shadow"
               >
+                {/* Header */}
                 <div className="flex items-center gap-3 mb-3">
-  {post.photoURL && post.photoURL !== "/default-avatar.png" ? (
+                  {usersData[post.userId]?.photoURL ? (
   <img
-    src={post.photoURL}
+    src={usersData[post.userId].photoURL}
     alt="avatar"
     className="w-10 h-10 rounded-full object-cover"
   />
 ) : (
   <div className="w-10 h-10 rounded-full bg-gray-400 text-white flex items-center justify-center font-bold">
-    {(post.username || "A")[0].toUpperCase()}
+    {(usersData[post.userId]?.username ||
+      post.username ||
+      "A")[0].toUpperCase()}
   </div>
 )}
-
-  <div>
-    <p className="font-semibold text-gray-700">
-      {post.username || "Anonymous"}
-    </p>
-
+                  <div>
+                    <p className="font-semibold text-gray-700">
+  {usersData[post.userId]?.username ||
+    post.username ||
+    "Anonymous"}
+</p>
                     <p className="text-xs text-gray-500">
-                      {new Date(post.createdAt).toLocaleString()}
+                      {post.createdAt
+                        ? new Date(post.createdAt).toLocaleString()
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -150,24 +178,25 @@ export default function Post() {
                   {post.title}
                 </h2>
                 <p className="text-gray-700 mb-3">{post.content}</p>
-                {post.mediaURL && (
-  <div className="mb-3">
-    {post.mediaType === "image" ? (
-      <img
-        src={post.mediaURL}
-        alt="post-media"
-        className="rounded-lg w-full max-h-80 object-contain"
-      />
-    ) : (
-      <video
-        src={post.mediaURL}
-        controls
-        className="rounded-lg w-full max-h-80 object-contain"
-      />
-    )}
-  </div>
-)}
 
+                {/* Media */}
+                {post.mediaURL && (
+                  <div className="mb-3">
+                    {post.mediaType === "image" ? (
+                      <img
+                        src={post.mediaURL}
+                        alt="post-media"
+                        className="rounded-lg w-full max-h-80 object-contain"
+                      />
+                    ) : (
+                      <video
+                        src={post.mediaURL}
+                        controls
+                        className="rounded-lg w-full max-h-80 object-contain"
+                      />
+                    )}
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex items-center gap-6 border-t pt-3">
@@ -220,6 +249,41 @@ export default function Post() {
                     <FiSend />
                   </button>
                 </div>
+
+                {/* Show Comments */}
+               {/* Show Comments */}
+{post.comments && Object.keys(post.comments).length > 0 && (
+  <div className="mt-3 border-t pt-2">
+    {Object.entries(post.comments)
+      .sort(([, a], [, b]) => a.time - b.time)
+      .map(([cid, comment]) => (
+        <div
+          key={cid}
+          className="mb-2 flex justify-between items-start"
+        >
+          <div>
+            <span className="font-semibold text-gray-700">
+              {comment.username}:{" "}
+            </span>
+            <span className="text-gray-800">{comment.text}</span>
+            <div className="text-xs text-gray-500">
+              {new Date(comment.time).toLocaleString()}
+            </div>
+          </div>
+
+          {/* Delete only for comment owner */}
+          {user?.uid === comment.userId && (
+            <button
+              onClick={() => deleteComment(post.id, cid)}
+              className="text-xs text-red-500 hover:underline ml-2"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      ))}
+  </div>
+)}
               </div>
             );
           })}

@@ -4,6 +4,7 @@ import { ref, get, update } from "firebase/database";
 import { getStatesOfIndia, getDistrictsOfState } from "../services/locationApi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -11,6 +12,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import dayjs from "dayjs";
+import { FaCamera } from "react-icons/fa";
 
 /* Maharashtra districts */
 const MAHARASHTRA_DISTRICTS = [
@@ -26,57 +28,61 @@ const MAHARASHTRA_DISTRICTS = [
 
 export default function Profile() {
   const [userData, setUserData] = useState(null);
+  const [originalData, setOriginalData] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [states, setStates] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [dobDate, setDobDate] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const navigate = useNavigate();
 
-  /* Load user */
+  /* Load User */
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         navigate("/");
         return;
       }
+
       const snap = await get(ref(db, "users/" + user.uid));
       if (snap.exists()) {
         setUserData(snap.val());
+        setOriginalData(snap.val());
+
         if (snap.val().dob) {
           setDobDate(dayjs(snap.val().dob, "DD/MM/YYYY"));
         }
       }
     });
+
     return () => unsub();
   }, [navigate]);
 
-  /* States */
+  /* Load States */
   useEffect(() => {
     getStatesOfIndia().then(setStates);
   }, []);
 
-  /* Districts */
+  /* Load Districts based on state */
   useEffect(() => {
     if (!userData?.state) return;
 
     if (userData.state.toLowerCase() === "maharashtra") {
-      setDistricts(
-        MAHARASHTRA_DISTRICTS
-          .map((d) => ({ name: d }))
-          .sort((a, b) => a.name.localeCompare(b.name))
-      );
+      setDistricts(MAHARASHTRA_DISTRICTS.map((d) => ({ name: d })));
       return;
     }
 
-    const s = states.find((x) => x.name === userData.state);
-    if (!s) return;
+    const stateObj = states.find((s) => s.name === userData.state);
+    if (!stateObj) return;
 
-    getDistrictsOfState(s.iso2).then((data) => {
+    getDistrictsOfState(stateObj.iso2).then((data) => {
       setDistricts(
-        data
-          .map((d) => ({ name: d.name.replace("District", "").trim() }))
-          .sort((a, b) => a.name.localeCompare(b.name))
+        data.map((d) => ({
+          name: d.name.replace("District", "").trim(),
+        }))
       );
     });
   }, [userData?.state, states]);
@@ -84,60 +90,125 @@ export default function Profile() {
   if (!userData) return null;
 
   const muiStyle = {
-    mb: 1.5,
+    mb: 2,
     "& .MuiOutlinedInput-root": {
-      borderRadius: "10px",
-      height: "44px",
+      borderRadius: "12px",
+      backgroundColor: "#f9faf7",
     },
   };
 
   /* Save */
   const handleSave = async () => {
     try {
+      setSaving(true);
       const uid = auth.currentUser.uid;
+      let photoURL = userData.photoURL || "";
+
+      if (imageFile) {
+        const storage = getStorage();
+        const imageRef = sRef(storage, "profileImages/" + uid);
+        await uploadBytes(imageRef, imageFile);
+        photoURL = await getDownloadURL(imageRef);
+      }
+
       await update(ref(db, "users/" + uid), {
         mobile: userData.mobile,
         state: userData.state,
         district: userData.district,
         village: userData.village,
+        photoURL,
       });
-      toast.success("Profile updated successfully");
+
+      const updatedData = { ...userData, photoURL };
+      setUserData(updatedData);
+      setOriginalData(updatedData);
       setEditMode(false);
-    } catch {
+      setImageFile(null);
+      setPreview(null);
+
+      toast.success("Profile updated successfully");
+    } catch (err) {
       toast.error("Update failed");
+    } finally {
+      setSaving(false);
     }
   };
 
+  /* Cancel Edit */
+  const handleCancel = () => {
+    setUserData(originalData);
+    setPreview(null);
+    setImageFile(null);
+    setEditMode(false);
+  };
+
   return (
-    <div className="min-h-screen bg-[#F5F9EF] flex justify-center px-3 py-6 pt-24 md:pt-28">
-      <div className="w-full max-w-6xl bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-[#F5F8F1] flex justify-center px-4 py-10 pt-24">
+      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row">
 
-        {/* LEFT */}
-        <div className="w-full lg:w-1/3 bg-[#E3ECD3] p-6 flex flex-row lg:flex-col items-center gap-4 lg:gap-6 border-b lg:border-b-0 lg:border-r">
-          <div className="w-20 h-20 lg:w-28 lg:h-28 rounded-full bg-[#6E8F3D] flex items-center justify-center text-white text-3xl lg:text-4xl font-semibold">
-            {userData.fullName?.charAt(0).toUpperCase()}
+        {/* LEFT PANEL */}
+        <div className="lg:w-1/3 bg-[#6E8F3D] p-8 flex flex-col items-center text-center text-white">
+
+          <div className="relative group">
+            {preview || userData.photoURL ? (
+              <img
+                src={preview || userData.photoURL}
+                alt="profile"
+                className="w-32 h-32 rounded-full object-cover border-4 border-white"
+              />
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center text-[#6E8F3D] text-5xl font-bold">
+                {userData.fullName?.charAt(0).toUpperCase()}
+              </div>
+            )}
+
+            {editMode && (
+              <label className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                <FaCamera className="text-white text-2xl" />
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setImageFile(file);
+                      setPreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+              </label>
+            )}
           </div>
 
-          <div className="text-center">
-            <h3 className="font-semibold text-base lg:text-lg">
-              {userData.fullName}
-            </h3>
-            <p className="text-sm text-gray-600">User</p>
-          </div>
+          {editMode && (
+            <button
+              onClick={() => {
+                setUserData({ ...userData, photoURL: "" });
+                setPreview(null);
+                setImageFile(null);
+              }}
+              className="text-sm mt-3 underline"
+            >
+              Remove Profile Photo
+            </button>
+          )}
 
-          <button className="hidden lg:block w-full bg-[#8FAF5A] text-white py-2 rounded-lg font-medium">
-            Personal Information
-          </button>
+          <h3 className="mt-5 text-xl font-semibold">
+            {userData.fullName}
+          </h3>
+          <p className="text-sm opacity-90">User</p>
         </div>
 
-        {/* RIGHT */}
-        <div className="w-full lg:w-2/3 p-5 lg:p-8">
-          <h2 className="text-lg lg:text-xl font-semibold mb-5">
+        {/* RIGHT PANEL */}
+        <div className="lg:w-2/3 p-8">
+          <h2 className="text-2xl font-semibold mb-6 text-[#6E8F3D]">
             Personal Information
           </h2>
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 gap-4">
+
               <TextField label="Full Name" value={userData.fullName} disabled fullWidth sx={muiStyle} />
               <TextField label="Email" value={userData.email} disabled fullWidth sx={muiStyle} />
 
@@ -145,7 +216,9 @@ export default function Profile() {
                 label="Mobile"
                 value={userData.mobile}
                 disabled={!editMode}
-                onChange={(e) => setUserData({ ...userData, mobile: e.target.value })}
+                onChange={(e) =>
+                  setUserData({ ...userData, mobile: e.target.value })
+                }
                 fullWidth
                 sx={muiStyle}
               />
@@ -163,13 +236,19 @@ export default function Profile() {
                 value={userData.state}
                 disabled={!editMode}
                 onChange={(e) =>
-                  setUserData({ ...userData, state: e.target.value, district: "" })
+                  setUserData({
+                    ...userData,
+                    state: e.target.value,
+                    district: "",
+                  })
                 }
                 fullWidth
                 sx={muiStyle}
               >
                 {states.map((s) => (
-                  <MenuItem key={s.iso2} value={s.name}>{s.name}</MenuItem>
+                  <MenuItem key={s.iso2} value={s.name}>
+                    {s.name}
+                  </MenuItem>
                 ))}
               </TextField>
 
@@ -185,7 +264,9 @@ export default function Profile() {
                 sx={muiStyle}
               >
                 {districts.map((d) => (
-                  <MenuItem key={d.name} value={d.name}>{d.name}</MenuItem>
+                  <MenuItem key={d.name} value={d.name}>
+                    {d.name}
+                  </MenuItem>
                 ))}
               </TextField>
 
@@ -201,29 +282,35 @@ export default function Profile() {
               />
             </div>
 
-            {/* BUTTONS */}
-            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+            <div className="flex gap-4 mt-8">
               {!editMode ? (
                 <button
                   onClick={() => setEditMode(true)}
-                  className="bg-[#8FAF5A] hover:bg-[#7C9F4F] text-white px-6 py-2 rounded-lg w-full sm:w-auto"
+                  className="bg-[#6E8F3D] text-white px-8 py-3 rounded-xl hover:bg-[#5c7a32]"
                 >
                   Edit Profile
                 </button>
               ) : (
                 <button
                   onClick={handleSave}
-                  className="bg-[#8FAF5A] hover:bg-[#7C9F4F] text-white px-6 py-2 rounded-lg w-full sm:w-auto"
+                  disabled={saving}
+                  className="bg-[#6E8F3D] text-white px-8 py-3 rounded-xl hover:bg-[#5c7a32] disabled:opacity-50"
                 >
-                  Save Changes
+                  {saving ? "Saving..." : "Save Changes"}
                 </button>
               )}
 
               <button
-                onClick={() => navigate(-1)}
-                className="border border-gray-400 px-6 py-2 rounded-lg hover:bg-gray-50 w-full sm:w-auto"
+                onClick={() => {
+                  if (editMode) {
+                    handleCancel();
+                  } else {
+                    navigate("/home");
+                  }
+                }}
+                className="border border-gray-300 px-8 py-3 rounded-xl hover:bg-gray-100"
               >
-                ← Back
+                {editMode ? "Cancel" : "Back"}
               </button>
             </div>
           </LocalizationProvider>
