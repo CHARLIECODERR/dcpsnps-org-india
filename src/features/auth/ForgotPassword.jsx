@@ -17,7 +17,7 @@ const ForgotPassword = ({ onClose, onSwitchToLogin }) => {
     try {
       setLoading(true);
       await sendPasswordResetEmail(auth, email);
-      toast.success("Password reset email sent. Check your inbox.");
+      toast.success("Password reset email sent. Check your  Spam inbox.");
       onClose();
     } catch (error) {
       toast.error(error.message || "Failed to send reset email");
