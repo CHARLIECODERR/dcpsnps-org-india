@@ -305,7 +305,7 @@ export default function Profile() {
                   if (editMode) {
                     handleCancel();
                   } else {
-                    navigate("/home");
+                    navigate("/");
                   }
                 }}
                 className="border border-gray-300 px-8 py-3 rounded-xl hover:bg-gray-100"
