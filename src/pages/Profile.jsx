@@ -19,6 +19,10 @@ import MenuItem from "@mui/material/MenuItem";
 import dayjs from "dayjs";
 import { FaCamera } from "react-icons/fa";
 
+import customParseFormat from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(customParseFormat);
+
 /* Maharashtra districts */
 const MAHARASHTRA_DISTRICTS = [
   "Ahmednagar",
@@ -126,8 +130,12 @@ useEffect(() => {
 
 
       if (data.dob) {
-        setDobDate(dayjs(data.dob, "DD/MM/YYYY"));
-      }
+  const parsed = dayjs(data.dob, "DD/MM/YYYY", true);
+
+  if (parsed.isValid()) {
+    setDobDate(parsed);
+  }
+}
 
     } catch (err) {
 
@@ -344,17 +352,18 @@ useEffect(() => {
                 sx={muiStyle}
               />
 
-              <DatePicker
-                label="Date of Birth"
-                value={dobDate}
-                disabled
-                slotProps={{
-                  textField: {
-                    fullWidth: true,
-                    sx: muiStyle,
-                  },
-                }}
-              />
+             <DatePicker
+  label="Date of Birth"
+  value={dobDate}
+  disabled
+  format="DD/MM/YYYY"
+  slotProps={{
+    textField: {
+      fullWidth: true,
+      sx: muiStyle,
+    },
+  }}
+/>
 
               <TextField
                 select
