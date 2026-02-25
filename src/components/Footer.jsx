@@ -3,7 +3,7 @@ const socialLinks = [
   { icon: "fab fa-facebook-f", label: "Facebook", href: "https://www.facebook.com/dcpsnps?mibextid=ZbWKwL" },
   { icon: "fab fa-twitter", label: "Twitter", href: "https://x.com/DcpsEmployees?t=BwyC5HZs2lcvQwi1iC2ZxQ&s=08" },
   { icon: "fab fa-youtube", label: "YouTube", href: "https://youtube.com/@dcpsemployessfoundation?si=xWFdcH8MLmhxb2LY" },
-  { icon: "fas fa-envelope", label: "Email", href: "#" },
+  { icon: "fas fa-envelope", label: "Email", href: "mailto:dcpsfoundation@gmail.com" },
 ];
 
 const Footer = () => (

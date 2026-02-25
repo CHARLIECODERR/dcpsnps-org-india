@@ -6,34 +6,35 @@ import {
   FaRegComment,
   FaRegBookmark,
   FaBookmark,
-  FaUserCircle,
 } from "react-icons/fa";
 import { FiSend } from "react-icons/fi";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Seo from "../components/Seo";
 import { auth, db } from "../services/firebase";
-import { ref, onValue, update, remove, push } from "firebase/database";
 
+import { ref, onValue, update, remove, push, get } from "firebase/database";
 export default function Post() {
   const [posts, setPosts] = useState([]);
   const [user, setUser] = useState(null);
   const [commentInput, setCommentInput] = useState({});
   const [usersData, setUsersData] = useState({});
-  
-  // 🔹 Listen auth
+
+  // ✅ Auth listener
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => {
       setUser(u || null);
     });
-    return () => unsub();
+    return unsub;
   }, []);
 
-  // 🔹 Fetch posts (Realtime DB)
+  // ✅ Fetch posts
   useEffect(() => {
     const postsRef = ref(db, "posts");
+
     const unsub = onValue(postsRef, (snap) => {
       const data = snap.val();
+
       if (!data) {
         setPosts([]);
         return;
@@ -45,37 +46,38 @@ export default function Post() {
       }));
 
       list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
       setPosts(list);
     });
 
-    return () => unsub();
+    return unsub;
   }, []);
 
-  // 🔹 Fetch all users (for profile photo)
-useEffect(() => {
-  const usersRef = ref(db, "users");
-  const unsub = onValue(usersRef, (snap) => {
-    const data = snap.val();
-    if (data) {
-      setUsersData(data);
-    }
-  });
+  // ✅ Fetch users data
+  useEffect(() => {
+    const usersRef = ref(db, "users");
 
-  return () => unsub();
-}, []);
+    const unsub = onValue(usersRef, (snap) => {
+      const data = snap.val();
+      if (data) setUsersData(data);
+    });
 
-  // 🔒 Auth guard
+    return unsub;
+  }, []);
+
+  // ✅ Require login
   const requireLogin = () => {
-    toast.info("🔐 Please login to continue");
-    return false;
+    toast.info("🔐 Please login first");
+    return;
   };
 
-  // Like
+  // ✅ Like
   const toggleLike = async (post) => {
     if (!user) return requireLogin();
 
     const likeRef = ref(db, `posts/${post.id}/likes/${user.uid}`);
-    if (post.likes && post.likes[user.uid]) {
+
+    if (post.likes?.[user.uid]) {
       await remove(likeRef);
     } else {
       await update(ref(db, `posts/${post.id}/likes`), {
@@ -84,12 +86,13 @@ useEffect(() => {
     }
   };
 
-  // Save
+  // ✅ Save
   const toggleSave = async (post) => {
     if (!user) return requireLogin();
 
     const saveRef = ref(db, `posts/${post.id}/saved/${user.uid}`);
-    if (post.saved && post.saved[user.uid]) {
+
+    if (post.saved?.[user.uid]) {
       await remove(saveRef);
     } else {
       await update(ref(db, `posts/${post.id}/saved`), {
@@ -98,199 +101,294 @@ useEffect(() => {
     }
   };
 
-  // Add Comment
+  // ✅ Add comment
   const addComment = async (postId) => {
-    if (!user) return requireLogin();
-    if (!commentInput[postId]?.trim()) return;
+  if (!user) return requireLogin();
+
+  const text = commentInput[postId]?.trim();
+  if (!text) return;
+
+  try {
+
+    const userRef = ref(db, `users/${user.uid}`);
+    const snap = await get(userRef);
+
+    let username = "User";
+
+    if (snap.exists()) {
+
+      const data = snap.val();
+
+      username =
+        data.fullName ||
+        data.username ||
+        data.name ||
+        user.displayName ||
+        user.email.split("@")[0];
+
+      // ✅ FIX old accounts automatically
+      if (!data.fullName) {
+        await update(userRef, {
+          fullName: username,
+          username: username
+        });
+      }
+
+    } else {
+
+      username =
+        user.displayName ||
+        user.email.split("@")[0];
+
+      await update(userRef, {
+        fullName: username,
+        username: username,
+        email: user.email
+      });
+
+    }
 
     await push(ref(db, `posts/${postId}/comments`), {
       userId: user.uid,
-      username: user.displayName || "Anonymous",
-      text: commentInput[postId],
+      username: username,
+      text: text,
       time: Date.now(),
     });
 
-    setCommentInput({ ...commentInput, [postId]: "" });
-  };
+    setCommentInput(prev => ({
+      ...prev,
+      [postId]: ""
+    }));
 
-   // Delete Comment
-const deleteComment = async (postId, commentId) => {
-  if (!user) return;
-
-  try {
-    await remove(ref(db, `posts/${postId}/comments/${commentId}`));
-    toast.success("Comment deleted");
   } catch (err) {
-    toast.error("Failed to delete comment");
+    toast.error("Failed to comment");
   }
 };
+
+  // ✅ Delete comment
+  const deleteComment = async (postId, cid) => {
+    try {
+      await remove(ref(db, `posts/${postId}/comments/${cid}`));
+      toast.success("Comment deleted");
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
+
   return (
     <>
       <Seo title="Community Feed" />
+
       <div className="min-h-screen pt-24 px-4 bg-[var(--body-color)]">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold text-center text-yellow-300 mb-6">
+        <div className="max-w-2xl mx-auto space-y-4">
+
+          <h1 className="text-3xl font-bold text-center text-yellow-300">
             Community Feed
           </h1>
 
           {posts.map((post) => {
+
             const likeCount = post.likes
               ? Object.keys(post.likes).length
               : 0;
+
+            const commentCount = post.comments
+              ? Object.keys(post.comments).length
+              : 0;
+
             const isLiked = user && post.likes?.[user.uid];
+
+            const postUser = usersData[post.userId];
+
+            const displayName =
+              postUser?.fullName ||
+              postUser?.username ||
+              postUser?.name ||
+              post.username ||
+              "Anonymous";
 
             return (
               <div
                 key={post.id}
-                className="bg-gray-100 rounded-lg p-5 mb-6 shadow"
+                className="bg-gray-100 rounded-lg shadow p-4"
               >
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-3">
-                  {usersData[post.userId]?.photoURL ? (
-  <img
-    src={usersData[post.userId].photoURL}
-    alt="avatar"
-    className="w-10 h-10 rounded-full object-cover"
-  />
-) : (
-  <div className="w-10 h-10 rounded-full bg-gray-400 text-white flex items-center justify-center font-bold">
-    {(usersData[post.userId]?.username ||
-      post.username ||
-      "A")[0].toUpperCase()}
-  </div>
-)}
+
+                {/* HEADER */}
+                <div className="flex items-center gap-3 mb-2">
+
+                  {postUser?.photoURL ? (
+                    <img
+                      src={postUser.photoURL}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-500 text-white flex items-center justify-center font-bold">
+                      {displayName[0].toUpperCase()}
+                    </div>
+                  )}
+
                   <div>
-                    <p className="font-semibold text-gray-700">
-  {usersData[post.userId]?.username ||
-    post.username ||
-    "Anonymous"}
-</p>
-                    <p className="text-xs text-gray-500">
+                    <div className="font-semibold text-gray-800">
+                      {displayName}
+                    </div>
+
+                    <div className="text-xs text-gray-500">
                       {post.createdAt
                         ? new Date(post.createdAt).toLocaleString()
                         : ""}
-                    </p>
+                    </div>
                   </div>
+
                 </div>
 
-                {/* Content */}
-                <h2 className="font-bold text-lg text-gray-800">
-                  {post.title}
-                </h2>
-                <p className="text-gray-700 mb-3">{post.content}</p>
 
-                {/* Media */}
+                {/* CONTENT */}
+                {post.title && (
+                  <div className="font-bold text-gray-800">
+                    {post.title}
+                  </div>
+                )}
+
+                {post.content && (
+                  <div className="text-gray-700 mb-2">
+                    {post.content}
+                  </div>
+                )}
+
+
+                {/* MEDIA */}
                 {post.mediaURL && (
-                  <div className="mb-3">
+                  <div className="mb-2">
+
                     {post.mediaType === "image" ? (
                       <img
                         src={post.mediaURL}
-                        alt="post-media"
                         className="rounded-lg w-full max-h-80 object-contain"
                       />
                     ) : (
                       <video
                         src={post.mediaURL}
                         controls
-                        className="rounded-lg w-full max-h-80 object-contain"
+                        className="rounded-lg w-full max-h-80"
                       />
                     )}
+
                   </div>
                 )}
 
-                {/* Actions */}
-                <div className="flex items-center gap-6 border-t pt-3">
+
+                {/* ACTIONS */}
+                <div className="flex items-center gap-6 border-t pt-2 text-gray-700">
+
                   <button
                     onClick={() => toggleLike(post)}
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 hover:text-red-500"
                   >
-                    {isLiked ? (
-                      <FaHeart className="text-red-500" />
-                    ) : (
-                      <FaRegHeart />
-                    )}
+                    {isLiked
+                      ? <FaHeart className="text-red-500"/>
+                      : <FaRegHeart/>
+                    }
                     {likeCount}
                   </button>
 
-                  <button className="flex items-center gap-1">
-                    <FaRegComment />
-                    {post.comments
-                      ? Object.keys(post.comments).length
-                      : 0}
+                  <div className="flex items-center gap-1">
+                    <FaRegComment/>
+                    {commentCount}
+                  </div>
+
+                  <button
+                    onClick={() => toggleSave(post)}
+                    className="hover:text-yellow-600"
+                  >
+                    {user && post.saved?.[user.uid]
+                      ? <FaBookmark/>
+                      : <FaRegBookmark/>
+                    }
                   </button>
 
-                  <button onClick={() => toggleSave(post)}>
-                    {user && post.saved?.[user.uid] ? (
-                      <FaBookmark />
-                    ) : (
-                      <FaRegBookmark />
-                    )}
-                  </button>
                 </div>
 
-                {/* Add Comment */}
+
+                {/* COMMENT INPUT */}
                 <div className="flex gap-2 mt-3">
+
                   <input
-                    type="text"
-                    placeholder="Add comment..."
                     value={commentInput[post.id] || ""}
                     onChange={(e) =>
                       setCommentInput({
                         ...commentInput,
-                        [post.id]: e.target.value,
+                        [post.id]: e.target.value
                       })
                     }
-                    className="flex-1 border rounded p-2 text-sm"
+                    placeholder="Write a comment..."
+                    className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
                   />
+
                   <button
                     onClick={() => addComment(post.id)}
-                    className="bg-gray-700 text-white px-3 rounded"
+                    className="bg-gray-800 text-white px-3 rounded hover:bg-black"
                   >
-                    <FiSend />
+                    <FiSend/>
                   </button>
+
                 </div>
 
-                {/* Show Comments */}
-               {/* Show Comments */}
-{post.comments && Object.keys(post.comments).length > 0 && (
-  <div className="mt-3 border-t pt-2">
-    {Object.entries(post.comments)
-      .sort(([, a], [, b]) => a.time - b.time)
-      .map(([cid, comment]) => (
-        <div
-          key={cid}
-          className="mb-2 flex justify-between items-start"
-        >
-          <div>
-            <span className="font-semibold text-gray-700">
-              {comment.username}:{" "}
-            </span>
-            <span className="text-gray-800">{comment.text}</span>
-            <div className="text-xs text-gray-500">
-              {new Date(comment.time).toLocaleString()}
-            </div>
-          </div>
 
-          {/* Delete only for comment owner */}
-          {user?.uid === comment.userId && (
-            <button
-              onClick={() => deleteComment(post.id, cid)}
-              className="text-xs text-red-500 hover:underline ml-2"
-            >
-              Delete
-            </button>
-          )}
-        </div>
-      ))}
-  </div>
-)}
+                {/* COMMENTS LIST */}
+                {post.comments && (
+                  <div className="mt-3 border-t pt-2 space-y-2">
+
+                    {Object.entries(post.comments)
+                      .sort(([,a],[,b]) => a.time - b.time)
+                      .map(([cid, c]) => (
+
+                      <div
+                        key={cid}
+                        className="bg-white rounded px-2 py-1 flex justify-between"
+                      >
+
+                        <div>
+
+                          <div className="text-sm">
+                            <span className="font-semibold">
+                              {c.username || usersData[c.userId]?.fullName || "User"}
+                            </span>
+                            {" "}
+                            {c.text}
+                          </div>
+
+                          <div className="text-xs text-gray-400">
+                            {new Date(c.time).toLocaleString()}
+                          </div>
+
+                        </div>
+
+                        {user?.uid === c.userId && (
+                          <button
+                            onClick={() => deleteComment(post.id, cid)}
+                            className="text-xs text-red-500 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        )}
+
+                      </div>
+
+                    ))}
+
+                  </div>
+                )}
+
               </div>
             );
-          })}
-        </div>
 
-        <ToastContainer position="bottom-left" theme="dark" />
+          })}
+
+        </div>
       </div>
+
+      <ToastContainer position="bottom-left" theme="dark"/>
+
     </>
   );
 }

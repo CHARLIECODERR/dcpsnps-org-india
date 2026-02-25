@@ -4,7 +4,12 @@ import { ref, get, update } from "firebase/database";
 import { getStatesOfIndia, getDistrictsOfState } from "../services/locationApi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  getStorage,
+  ref as sRef,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
 
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -16,14 +21,42 @@ import { FaCamera } from "react-icons/fa";
 
 /* Maharashtra districts */
 const MAHARASHTRA_DISTRICTS = [
-  "Ahmednagar","Akola","Amravati","Chhatrapati Sambhajinagar",
-  "Beed","Bhandara","Buldhana","Chandrapur","Dhule",
-  "Gadchiroli","Gondia","Hingoli","Jalgaon","Jalna",
-  "Kolhapur","Latur","Mumbai City","Mumbai Suburban",
-  "Nagpur","Nanded","Nandurbar","Nashik","Dharashiv",
-  "Palghar","Parbhani","Pune","Raigad","Ratnagiri",
-  "Sangli","Satara","Sindhudurg","Solapur","Thane",
-  "Wardha","Washim","Yavatmal"
+  "Ahmednagar",
+  "Akola",
+  "Amravati",
+  "Chhatrapati Sambhajinagar",
+  "Beed",
+  "Bhandara",
+  "Buldhana",
+  "Chandrapur",
+  "Dhule",
+  "Gadchiroli",
+  "Gondia",
+  "Hingoli",
+  "Jalgaon",
+  "Jalna",
+  "Kolhapur",
+  "Latur",
+  "Mumbai City",
+  "Mumbai Suburban",
+  "Nagpur",
+  "Nanded",
+  "Nandurbar",
+  "Nashik",
+  "Dharashiv",
+  "Palghar",
+  "Parbhani",
+  "Pune",
+  "Raigad",
+  "Ratnagiri",
+  "Sangli",
+  "Satara",
+  "Sindhudurg",
+  "Solapur",
+  "Thane",
+  "Wardha",
+  "Washim",
+  "Yavatmal",
 ];
 
 export default function Profile() {
@@ -39,34 +72,82 @@ export default function Profile() {
 
   const navigate = useNavigate();
 
-  /* Load User */
-  useEffect(() => {
-    const unsub = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        navigate("/");
-        return;
-      }
+  /* ✅ Load user profile */
+useEffect(() => {
+  const unsub = auth.onAuthStateChanged(async (user) => {
 
-      const snap = await get(ref(db, "users/" + user.uid));
+    if (!user) {
+      navigate("/");
+      return;
+    }
+
+    try {
+
+      const userRef = ref(db, "users/" + user.uid);
+
+      const snap = await get(userRef);
+
+      let data;
+
       if (snap.exists()) {
-        setUserData(snap.val());
-        setOriginalData(snap.val());
 
-        if (snap.val().dob) {
-          setDobDate(dayjs(snap.val().dob, "DD/MM/YYYY"));
-        }
+        data = snap.val();
+
+      } else {
+
+        // create entry for very old auth users
+        data = {
+          email: user.email || "",
+          mobile: "",
+          state: "",
+          district: "",
+          village: "",
+          photoURL: user.photoURL || "",
+          dob: "",
+        };
+
+        await update(userRef, data);
       }
-    });
 
-    return () => unsub();
-  }, [navigate]);
 
-  /* Load States */
+      /* ✅ NORMALIZE NAME (supports all old formats) */
+      const resolvedName =
+        data.fullName ||
+        data.name ||
+        data.username ||
+        user.displayName ||
+        (user.email ? user.email.split("@")[0] : "");
+
+      data.fullName = resolvedName;
+
+
+      setUserData(data);
+      setOriginalData(data);
+
+
+      if (data.dob) {
+        setDobDate(dayjs(data.dob, "DD/MM/YYYY"));
+      }
+
+    } catch (err) {
+
+      console.error(err);
+      toast.error("Failed to load profile");
+
+    }
+
+  });
+
+  return () => unsub();
+
+}, [navigate]);
+
+  /* Load states */
   useEffect(() => {
     getStatesOfIndia().then(setStates);
   }, []);
 
-  /* Load Districts based on state */
+  /* Load districts */
   useEffect(() => {
     if (!userData?.state) return;
 
@@ -76,6 +157,7 @@ export default function Profile() {
     }
 
     const stateObj = states.find((s) => s.name === userData.state);
+
     if (!stateObj) return;
 
     getDistrictsOfState(stateObj.iso2).then((data) => {
@@ -101,13 +183,18 @@ export default function Profile() {
   const handleSave = async () => {
     try {
       setSaving(true);
+
       const uid = auth.currentUser.uid;
+
       let photoURL = userData.photoURL || "";
 
       if (imageFile) {
         const storage = getStorage();
+
         const imageRef = sRef(storage, "profileImages/" + uid);
+
         await uploadBytes(imageRef, imageFile);
+
         photoURL = await getDownloadURL(imageRef);
       }
 
@@ -119,7 +206,11 @@ export default function Profile() {
         photoURL,
       });
 
-      const updatedData = { ...userData, photoURL };
+      const updatedData = {
+        ...userData,
+        photoURL,
+      };
+
       setUserData(updatedData);
       setOriginalData(updatedData);
       setEditMode(false);
@@ -128,13 +219,14 @@ export default function Profile() {
 
       toast.success("Profile updated successfully");
     } catch (err) {
+      console.error(err);
       toast.error("Update failed");
     } finally {
       setSaving(false);
     }
   };
 
-  /* Cancel Edit */
+  /* Cancel */
   const handleCancel = () => {
     setUserData(originalData);
     setPreview(null);
@@ -146,7 +238,7 @@ export default function Profile() {
     <div className="min-h-screen bg-[#F5F8F1] flex justify-center px-4 py-10 pt-24">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col lg:flex-row">
 
-        {/* LEFT PANEL */}
+        {/* LEFT */}
         <div className="lg:w-1/3 bg-[#6E8F3D] p-8 flex flex-col items-center text-center text-white">
 
           <div className="relative group">
@@ -158,19 +250,21 @@ export default function Profile() {
               />
             ) : (
               <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center text-[#6E8F3D] text-5xl font-bold">
-                {userData.fullName?.charAt(0).toUpperCase()}
+                {userData.fullName?.charAt(0)?.toUpperCase()}
               </div>
             )}
 
             {editMode && (
               <label className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer">
                 <FaCamera className="text-white text-2xl" />
+
                 <input
                   type="file"
                   hidden
                   accept="image/*"
                   onChange={(e) => {
                     const file = e.target.files[0];
+
                     if (file) {
                       setImageFile(file);
                       setPreview(URL.createObjectURL(file));
@@ -183,41 +277,68 @@ export default function Profile() {
 
           {editMode && (
             <button
-              onClick={() => {
-                setUserData({ ...userData, photoURL: "" });
-                setPreview(null);
-                setImageFile(null);
-              }}
-              className="text-sm mt-3 underline"
-            >
-              Remove Profile Photo
-            </button>
+  onClick={() => {
+    setUserData({
+      ...userData,
+      photoURL: "",
+    });
+
+    setPreview(null);
+    setImageFile(null);
+
+    toast.info("Profile photo removed");
+  }}
+  className="text-sm mt-3 text-red-300 hover:text-red-500 underline"
+>
+  Remove Profile Photo
+</button>
           )}
 
           <h3 className="mt-5 text-xl font-semibold">
             {userData.fullName}
           </h3>
-          <p className="text-sm opacity-90">User</p>
+
+          <p className="text-sm opacity-90">
+            User
+          </p>
         </div>
 
-        {/* RIGHT PANEL */}
+        {/* RIGHT */}
         <div className="lg:w-2/3 p-8">
+
           <h2 className="text-2xl font-semibold mb-6 text-[#6E8F3D]">
             Personal Information
           </h2>
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
+
             <div className="grid md:grid-cols-2 gap-4">
 
-              <TextField label="Full Name" value={userData.fullName} disabled fullWidth sx={muiStyle} />
-              <TextField label="Email" value={userData.email} disabled fullWidth sx={muiStyle} />
+              <TextField
+                label="Full Name"
+                value={userData.fullName}
+                disabled
+                fullWidth
+                sx={muiStyle}
+              />
+
+              <TextField
+                label="Email"
+                value={userData.email}
+                disabled
+                fullWidth
+                sx={muiStyle}
+              />
 
               <TextField
                 label="Mobile"
                 value={userData.mobile}
                 disabled={!editMode}
                 onChange={(e) =>
-                  setUserData({ ...userData, mobile: e.target.value })
+                  setUserData({
+                    ...userData,
+                    mobile: e.target.value,
+                  })
                 }
                 fullWidth
                 sx={muiStyle}
@@ -227,7 +348,12 @@ export default function Profile() {
                 label="Date of Birth"
                 value={dobDate}
                 disabled
-                slotProps={{ textField: { fullWidth: true, sx: muiStyle } }}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    sx: muiStyle,
+                  },
+                }}
               />
 
               <TextField
@@ -245,11 +371,13 @@ export default function Profile() {
                 fullWidth
                 sx={muiStyle}
               >
+
                 {states.map((s) => (
                   <MenuItem key={s.iso2} value={s.name}>
                     {s.name}
                   </MenuItem>
                 ))}
+
               </TextField>
 
               <TextField
@@ -258,16 +386,21 @@ export default function Profile() {
                 value={userData.district}
                 disabled={!editMode}
                 onChange={(e) =>
-                  setUserData({ ...userData, district: e.target.value })
+                  setUserData({
+                    ...userData,
+                    district: e.target.value,
+                  })
                 }
                 fullWidth
                 sx={muiStyle}
               >
+
                 {districts.map((d) => (
                   <MenuItem key={d.name} value={d.name}>
                     {d.name}
                   </MenuItem>
                 ))}
+
               </TextField>
 
               <TextField
@@ -275,14 +408,19 @@ export default function Profile() {
                 value={userData.village}
                 disabled={!editMode}
                 onChange={(e) =>
-                  setUserData({ ...userData, village: e.target.value })
+                  setUserData({
+                    ...userData,
+                    village: e.target.value,
+                  })
                 }
                 fullWidth
                 sx={muiStyle}
               />
+
             </div>
 
             <div className="flex gap-4 mt-8">
+
               {!editMode ? (
                 <button
                   onClick={() => setEditMode(true)}
@@ -302,19 +440,22 @@ export default function Profile() {
 
               <button
                 onClick={() => {
-                  if (editMode) {
+                  if (editMode)
                     handleCancel();
-                  } else {
+                  else
                     navigate("/");
-                  }
                 }}
                 className="border border-gray-300 px-8 py-3 rounded-xl hover:bg-gray-100"
               >
                 {editMode ? "Cancel" : "Back"}
               </button>
+
             </div>
+
           </LocalizationProvider>
+
         </div>
+
       </div>
     </div>
   );

@@ -957,6 +957,7 @@ const ContactUs = () => {
             className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg rounded-lg transition duration-300"
           >
             {loading ? "Submitting..." : "Submit"}
+            
           </button>
         </form>
       </div>
