@@ -189,50 +189,61 @@ useEffect(() => {
 
   /* Save */
   const handleSave = async () => {
-    try {
-      setSaving(true);
+  try {
+    setSaving(true);
 
-      const uid = auth.currentUser.uid;
-
-      let photoURL = userData.photoURL || "";
-
-      if (imageFile) {
-        const storage = getStorage();
-
-        const imageRef = sRef(storage, "profileImages/" + uid);
-
-        await uploadBytes(imageRef, imageFile);
-
-        photoURL = await getDownloadURL(imageRef);
-      }
-
-      await update(ref(db, "users/" + uid), {
-        mobile: userData.mobile,
-        state: userData.state,
-        district: userData.district,
-        village: userData.village,
-        photoURL,
-      });
-
-      const updatedData = {
-        ...userData,
-        photoURL,
-      };
-
-      setUserData(updatedData);
-      setOriginalData(updatedData);
-      setEditMode(false);
-      setImageFile(null);
-      setPreview(null);
-
-      toast.success("Profile updated successfully");
-    } catch (err) {
-      console.error(err);
-      toast.error("Update failed");
-    } finally {
-      setSaving(false);
+    const user = auth.currentUser;
+    if (!user) {
+      toast.error("User not authenticated");
+      return;
     }
-  };
+
+    const uid = user.uid;
+
+    let photoURL = userData.photoURL || "";
+
+    // Upload image only if new file selected
+    if (imageFile) {
+      const storage = getStorage();
+      const imageRef = sRef(storage, "profileImages/" + uid);
+
+      await uploadBytes(imageRef, imageFile);
+      photoURL = await getDownloadURL(imageRef);
+    }
+
+    // ✅ Update ONLY editable fields
+    await update(ref(db, "users/" + uid), {
+      mobile: userData.mobile || "",
+      state: userData.state || "",
+      district: userData.district || "",
+      village: userData.village || "",
+      photoURL,
+    });
+
+    // ✅ Update local state properly
+    const updatedData = {
+      ...originalData,
+      mobile: userData.mobile,
+      state: userData.state,
+      district: userData.district,
+      village: userData.village,
+      photoURL,
+    };
+
+    setUserData(updatedData);
+    setOriginalData(updatedData);
+    setEditMode(false);
+    setImageFile(null);
+    setPreview(null);
+
+    toast.success("Profile updated successfully");
+  } catch (error) {
+    console.error(error);
+    toast.error("Update failed");
+  } finally {
+    setSaving(false);
+  }
+};
 
   /* Cancel */
   const handleCancel = () => {
@@ -339,19 +350,28 @@ useEffect(() => {
               />
 
               <TextField
-                label="Mobile"
-                value={userData.mobile}
-                disabled={!editMode}
-                onChange={(e) =>
-                  setUserData({
-                    ...userData,
-                    mobile: e.target.value,
-                  })
-                }
-                fullWidth
-                sx={muiStyle}
-              />
+  label="Mobile"
+  value={userData.mobile}
+  disabled={!editMode}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, ""); // remove non-digits
 
+    // Allow only up to 10 digits
+    if (value.length <= 10) {
+      setUserData({
+        ...userData,
+        mobile: value,
+      });
+    }
+  }}
+  inputProps={{
+    maxLength: 10,
+    inputMode: "numeric",
+    pattern: "[0-9]*",
+  }}
+  fullWidth
+  sx={muiStyle}
+/>
              <DatePicker
   label="Date of Birth"
   value={dobDate}
