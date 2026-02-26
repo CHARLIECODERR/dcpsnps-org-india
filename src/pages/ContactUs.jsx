@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ref, push } from "firebase/database";
-import { db } from "../services/firebase";
+import { db } from "../firebase";
 import Seo from '../components/Seo';
 
 // State → District mapping for India
@@ -840,14 +840,14 @@ const ContactUs = () => {
 
     try {
       // Save message to Firebase Realtime Database
-      await push(ref(db, "contactMessages"), {
-        name,
-        email,
-        state: selectedState,
-        district: selectedDistrict,
-        message,
-        timestamp: new Date().toISOString(),
-      });
+      await push(ref(db, "contact"), {
+  name: name,
+  emailid: email,
+  state: selectedState,
+  district: selectedDistrict,
+  msgContent: message,
+  timestamp: Date.now(),
+});
 
       setSuccessMsg("Message submitted successfully!");
       // Reset form fields
