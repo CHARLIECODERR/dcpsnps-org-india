@@ -13,7 +13,6 @@ import "react-toastify/dist/ReactToastify.css";
 import { auth, db } from "../services/firebase";
 import { ref, onValue, push, remove, set } from "firebase/database";
 import { FiShare2 } from "react-icons/fi";
-import { sharePost } from "../utils/sharePost";
 
 export default function SavedPost() {
   const [user, setUser] = useState(null);
@@ -71,6 +70,25 @@ export default function SavedPost() {
     toast.info("⚠️ Post unsaved");
   };
 // ✅ SHARE FUNCTION
+const handleShare = async (post) => {
+  const url = `${window.location.origin}/post/${post.id}`;
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: post.title || "GenX Post",
+        text: post.content || "Check this post",
+        url,
+      });
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success("🔗 Link copied!");
+      window.open(`https://wa.me/?text=${encodeURIComponent(url)}`, "_blank");
+    }
+  } catch (err) {
+    toast.error("Failed to share");
+  }
+};
 
   // 🔹 Add Comment
   const addComment = async (postId) => {
@@ -200,8 +218,8 @@ export default function SavedPost() {
 
   {/* ✅ SHARE BUTTON ADDED HERE */}
   <button
-  onClick={() => sharePost(post)}
-  className="flex items-center gap-1 hover:text-blue-500"
+  onClick={() => handleShare(post)}
+  className="hover:text-blue-500"
   title="Share"
   aria-label="Share"
 >
