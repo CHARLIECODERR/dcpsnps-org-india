@@ -6,11 +6,6 @@ import {
   FaRegComment,
   FaRegBookmark,
   FaBookmark,
-  FaShareAlt,
-  FaWhatsapp,
-  FaFacebook,
-  FaTwitter,
-  FaLink,
 } from "react-icons/fa";
 import { FiSend } from "react-icons/fi";
 import { toast, ToastContainer } from "react-toastify";
@@ -19,6 +14,7 @@ import { auth, db, storage } from "../services/firebase";
 import { ref, onValue, update, remove, push, set } from "firebase/database";
 import { ref as sRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { FiShare2 } from "react-icons/fi";
+
 
 export default function MyPosts() {
   const [posts, setPosts] = useState([]);
@@ -75,26 +71,25 @@ export default function MyPosts() {
   };
 // ✅ SHARE FUNCTION
 const handleShare = async (post) => {
-  const postUrl = `${window.location.origin}/post/${post.id}`;
+  const url = `${window.location.origin}/post/${post.id}`;
 
   try {
     if (navigator.share) {
       await navigator.share({
-        title: post.title || "Check this post",
-        text: post.content || "See this post",
-        url: postUrl,
+        title: post.title || "GenX Post",
+        text: post.content || "Check this post",
+        url,
       });
     } else {
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
-      window.open(whatsappUrl, "_blank");
-      await navigator.clipboard.writeText(postUrl); // optional clipboard copy
-      toast.success("🔗 Link copied to clipboard!");
+      await navigator.clipboard.writeText(url);
+      toast.success("🔗 Link copied!");
+      window.open(`https://wa.me/?text=${encodeURIComponent(url)}`, "_blank");
     }
   } catch (err) {
-    console.log(err);
     toast.error("Failed to share");
   }
 };
+
   const saveEditedPost = async (post) => {
     let mediaURL = post.mediaURL;
     let mediaType = post.mediaType;
@@ -332,12 +327,15 @@ const handleShare = async (post) => {
   </button>
 
   {/* ✅ SHARE BUTTON ADDED */}
-  <button
-    onClick={() => handleShare(post)}
-    className="flex items-center gap-1 hover:text-blue-500"
-  >
-    <FiShare2 />
-  </button>
+ <button
+  onClick={() => handleShare(post)}
+  className="hover:text-blue-500"
+  title="Share"
+  aria-label="Share"
+>
+  <FiShare2 size={18} />
+</button>
+
 
 </div>
 

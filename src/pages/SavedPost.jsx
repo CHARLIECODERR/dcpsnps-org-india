@@ -13,6 +13,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { auth, db } from "../services/firebase";
 import { ref, onValue, push, remove, set } from "firebase/database";
 import { FiShare2 } from "react-icons/fi";
+import { sharePost } from "../utils/sharePost";
 
 export default function SavedPost() {
   const [user, setUser] = useState(null);
@@ -70,29 +71,7 @@ export default function SavedPost() {
     toast.info("⚠️ Post unsaved");
   };
 // ✅ SHARE FUNCTION
-const handleShare = async (post) => {
-  const postUrl = `${window.location.origin}/post/${post.id}`;
 
-  try {
-    if (navigator.share) {
-      await navigator.share({
-        title: post.title || "Check this post",
-        text: post.content || "See this post",
-        url: postUrl,
-      });
-    } else {
-      // fallback to WhatsApp or copy link
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
-      window.open(whatsappUrl, "_blank");
-      // optionally copy to clipboard:
-      await navigator.clipboard.writeText(postUrl);
-      toast.success("🔗 Link copied to clipboard!");
-    }
-  } catch (err) {
-    console.log(err);
-    toast.error("Failed to share");
-  }
-};
   // 🔹 Add Comment
   const addComment = async (postId) => {
     if (!user) return toast.info("🔐 Please login to continue");
@@ -221,11 +200,13 @@ const handleShare = async (post) => {
 
   {/* ✅ SHARE BUTTON ADDED HERE */}
   <button
-    onClick={() => handleShare(post)}
-    className="flex items-center gap-1 hover:text-blue-500"
-  >
-    <FiShare2 />
-  </button>
+  onClick={() => sharePost(post)}
+  className="flex items-center gap-1 hover:text-blue-500"
+  title="Share"
+  aria-label="Share"
+>
+  <FiShare2 size={18} />
+</button>
 </div>
 
               {/* Comments */}

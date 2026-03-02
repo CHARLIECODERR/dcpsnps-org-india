@@ -14,6 +14,7 @@ import Seo from "../components/Seo";
 import { auth, db } from "../services/firebase";
 import { FiShare2 } from "react-icons/fi";
 
+
 import { ref, onValue, update, remove, push, get } from "firebase/database";
 export default function Post() {
   const [posts, setPosts] = useState([]);
@@ -102,28 +103,26 @@ export default function Post() {
     }
   };
   // ✅ SHARE FUNCTION
-const handleShare = async (post) => {
-  const postUrl = `${window.location.origin}/post/${post.id}`;
+  const handleShare = async (post) => {
+  const url = `${window.location.origin}/post/${post.id}`;
 
   try {
     if (navigator.share) {
       await navigator.share({
-        title: post.title || "Check this post",
-        text: post.content || "See this post",
-        url: postUrl,
+        title: post.title || "GenX Post",
+        text: post.content || "Check this post",
+        url,
       });
     } else {
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
-      window.open(whatsappUrl, "_blank");
-      // Optionally copy link to clipboard
-      await navigator.clipboard.writeText(postUrl);
+      await navigator.clipboard.writeText(url);
       toast.success("🔗 Link copied!");
+      window.open(`https://wa.me/?text=${encodeURIComponent(url)}`, "_blank");
     }
   } catch (err) {
-    console.log(err);
     toast.error("Failed to share");
   }
 };
+
   // ✅ Add comment
   const addComment = async (postId) => {
   if (!user) return requireLogin();
@@ -331,8 +330,10 @@ const handleShare = async (post) => {
                   <button
   onClick={() => handleShare(post)}
   className="hover:text-blue-500"
+  title="Share"
+  aria-label="Share"
 >
-  <FiShare2 />
+  <FiShare2 size={18} />
 </button>
 
                 </div>
