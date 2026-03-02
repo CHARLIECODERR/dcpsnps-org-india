@@ -1,5 +1,5 @@
-import { Routes, Route } from "react-router-dom";
 import React, { Suspense, useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -8,6 +8,12 @@ import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import MyPosts from "./pages/MyPosts.jsx";
 import SinglePost from "./pages/SinglePost";
+
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+import emailjs from "@emailjs/browser";
+import "./App.css";
 
 const Home2 = React.lazy(() => import("./pages/Home2"));
 const Home3 = React.lazy(() => import("./pages/Home3"));
@@ -19,11 +25,6 @@ const Post = React.lazy(() => import("./pages/Post")); // Feed Page
 const Create = React.lazy(() => import("./pages/CreatePost")); // Create Post Page
 const SavedPost = React.lazy(() => import("./pages/SavedPost")); // Saved Post Page
 
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import emailjs from "@emailjs/browser";
-import "./App.css";
-
 function App() {
   useEffect(() => {
     emailjs.init("u8itjQTl3n-K0a0Nh");
@@ -34,7 +35,6 @@ function App() {
       <Navbar />
 
       <Routes>
-        {/* Home Page */}
         <Route
           path="/"
           element={
@@ -50,9 +50,8 @@ function App() {
           }
         />
 
-        {/* Community Section */}
-        <Route path="/post" element={<Post />} />              {/* FEED */}
-        <Route path="/post/:postId" element={<SinglePost />} /> {/* SINGLE POST (SHARE LINK) */}
+        <Route path="/post" element={<Post />} />
+        <Route path="/post/:postId" element={<SinglePost />} />
 
         <Route path="/create" element={<Create />} />
         <Route path="/saved" element={<SavedPost />} />
