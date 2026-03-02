@@ -7,7 +7,6 @@ import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import MyPosts from "./pages/MyPosts.jsx";
-import SinglePost from "./pages/SinglePost";
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -35,6 +34,7 @@ function App() {
       <Navbar />
 
       <Routes>
+        {/* Home Page */}
         <Route
           path="/"
           element={
@@ -50,8 +50,8 @@ function App() {
           }
         />
 
+        {/* ✅ Feed page only (handles /post and /post?share=ID) */}
         <Route path="/post" element={<Post />} />
-        <Route path="/post/:postId" element={<SinglePost />} />
 
         <Route path="/create" element={<Create />} />
         <Route path="/saved" element={<SavedPost />} />
