@@ -75,7 +75,7 @@ export default function MyPosts() {
   };
 // ✅ SHARE FUNCTION
 const handleShare = async (post) => {
-  const postUrl = window.location.href;
+  const postUrl = `${window.location.origin}/post/${post.id}`;
 
   try {
     if (navigator.share) {
@@ -85,19 +85,16 @@ const handleShare = async (post) => {
         url: postUrl,
       });
     } else {
-      const whatsappUrl =
-        `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
       window.open(whatsappUrl, "_blank");
+      await navigator.clipboard.writeText(postUrl); // optional clipboard copy
+      toast.success("🔗 Link copied to clipboard!");
     }
   } catch (err) {
     console.log(err);
+    toast.error("Failed to share");
   }
 };
-  const deletePost = async (post) => {
-    await remove(ref(db, "posts/" + post.id));
-    toast.info("🗑️ Post deleted");
-  };
-
   const saveEditedPost = async (post) => {
     let mediaURL = post.mediaURL;
     let mediaType = post.mediaType;

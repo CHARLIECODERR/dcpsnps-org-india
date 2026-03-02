@@ -71,7 +71,7 @@ export default function SavedPost() {
   };
 // ✅ SHARE FUNCTION
 const handleShare = async (post) => {
-  const postUrl = window.location.href;
+  const postUrl = `${window.location.origin}/post/${post.id}`;
 
   try {
     if (navigator.share) {
@@ -81,12 +81,16 @@ const handleShare = async (post) => {
         url: postUrl,
       });
     } else {
-      const whatsappUrl =
-        `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
+      // fallback to WhatsApp or copy link
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
       window.open(whatsappUrl, "_blank");
+      // optionally copy to clipboard:
+      await navigator.clipboard.writeText(postUrl);
+      toast.success("🔗 Link copied to clipboard!");
     }
   } catch (err) {
     console.log(err);
+    toast.error("Failed to share");
   }
 };
   // 🔹 Add Comment

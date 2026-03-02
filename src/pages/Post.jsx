@@ -20,7 +20,7 @@ export default function Post() {
   const [user, setUser] = useState(null);
   const [commentInput, setCommentInput] = useState({});
   const [usersData, setUsersData] = useState({});
-
+const postUrl = `${window.location.origin}/post/${post.id}`;
   // ✅ Auth listener
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => {
@@ -103,7 +103,7 @@ export default function Post() {
   };
   // ✅ SHARE FUNCTION
 const handleShare = async (post) => {
-  const postUrl = window.location.href;
+  const postUrl = `${window.location.origin}/post/${post.id}`;
 
   try {
     if (navigator.share) {
@@ -113,15 +113,17 @@ const handleShare = async (post) => {
         url: postUrl,
       });
     } else {
-      const whatsappUrl =
-        `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(postUrl)}`;
       window.open(whatsappUrl, "_blank");
+      // Optionally copy link to clipboard
+      await navigator.clipboard.writeText(postUrl);
+      toast.success("🔗 Link copied!");
     }
   } catch (err) {
     console.log(err);
+    toast.error("Failed to share");
   }
 };
-
   // ✅ Add comment
   const addComment = async (postId) => {
   if (!user) return requireLogin();
