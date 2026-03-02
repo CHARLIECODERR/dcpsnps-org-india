@@ -22,8 +22,7 @@ export default function Post() {
   const [commentInput, setCommentInput] = useState({});
   const [usersData, setUsersData] = useState({});
   const location = useLocation();
-const [shareId, setShareId] = useState(null);
-const [highlightId, setHighlightId] = useState(null);
+const [sharedPost, setSharedPost] = useState(null);
 
   // ✅ Auth listener
   useEffect(() => {
@@ -32,30 +31,21 @@ const [highlightId, setHighlightId] = useState(null);
     });
     return unsub;
   }, []);
+
+//find post
 useEffect(() => {
   const params = new URLSearchParams(location.search);
   const id = params.get("share");
-  setShareId(id);
-  setHighlightId(id);
 
-  // remove highlight after 4 sec
-  if (id) {
-    const t = setTimeout(() => setHighlightId(null), 4000);
-    return () => clearTimeout(t);
+  if (!id) {
+    setSharedPost(null);
+    return;
   }
-}, [location.search]);
 
-useEffect(() => {
-  if (!shareId) return;
-  if (!posts.length) return;
+  const found = posts.find((p) => p.id === id);
+  setSharedPost(found || null);
+}, [location.search, posts]);
 
-  // wait for DOM render
-  setTimeout(() => {
-    const el = document.getElementById(`post-${shareId}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    else toast.info("Post not found in feed");
-  }, 200);
-}, [shareId, posts]);
 
   // ✅ Fetch posts
   useEffect(() => {
@@ -235,8 +225,10 @@ useEffect(() => {
             Community Feed
           </h1>
 
-          {posts.map((post) => {
-
+          {[
+  ...(sharedPost ? [sharedPost] : []),
+  ...posts.filter((p) => !sharedPost || p.id !== sharedPost.id),
+].map((post) => {
             const likeCount = post.likes
               ? Object.keys(post.likes).length
               : 0;
@@ -257,12 +249,9 @@ useEffect(() => {
               "Anonymous";
 
             return (
-              <div
+<div
   key={post.id}
-  id={`post-${post.id}`}
-  className={`bg-gray-100 rounded-lg shadow p-4 transition-all ${
-    highlightId === post.id ? "ring-4 ring-yellow-300" : ""
-  }`}
+  className="bg-gray-100 rounded-lg shadow p-4"
 >
 
                 {/* HEADER */}
