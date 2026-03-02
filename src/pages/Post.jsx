@@ -20,7 +20,7 @@ export default function Post() {
   const [user, setUser] = useState(null);
   const [commentInput, setCommentInput] = useState({});
   const [usersData, setUsersData] = useState({});
-const postUrl = `${window.location.origin}/post/${post.id}`;
+
   // ✅ Auth listener
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => {
