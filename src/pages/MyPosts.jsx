@@ -71,7 +71,7 @@ export default function MyPosts() {
   };
 // ✅ SHARE FUNCTION
 const handleShare = async (post) => {
-  const url = `${window.location.origin}/post/${post.id}`;
+  const url = `${window.location.origin}/post?share=${post.id}`;
 
   try {
     if (navigator.share) {

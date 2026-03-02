@@ -13,7 +13,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Seo from "../components/Seo";
 import { auth, db } from "../services/firebase";
 import { FiShare2 } from "react-icons/fi";
-
+import { useLocation } from "react-router-dom";
 
 import { ref, onValue, update, remove, push, get } from "firebase/database";
 export default function Post() {
@@ -21,6 +21,9 @@ export default function Post() {
   const [user, setUser] = useState(null);
   const [commentInput, setCommentInput] = useState({});
   const [usersData, setUsersData] = useState({});
+  const location = useLocation();
+const [shareId, setShareId] = useState(null);
+const [highlightId, setHighlightId] = useState(null);
 
   // ✅ Auth listener
   useEffect(() => {
@@ -29,6 +32,30 @@ export default function Post() {
     });
     return unsub;
   }, []);
+useEffect(() => {
+  const params = new URLSearchParams(location.search);
+  const id = params.get("share");
+  setShareId(id);
+  setHighlightId(id);
+
+  // remove highlight after 4 sec
+  if (id) {
+    const t = setTimeout(() => setHighlightId(null), 4000);
+    return () => clearTimeout(t);
+  }
+}, [location.search]);
+
+useEffect(() => {
+  if (!shareId) return;
+  if (!posts.length) return;
+
+  // wait for DOM render
+  setTimeout(() => {
+    const el = document.getElementById(`post-${shareId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    else toast.info("Post not found in feed");
+  }, 200);
+}, [shareId, posts]);
 
   // ✅ Fetch posts
   useEffect(() => {
@@ -104,7 +131,7 @@ export default function Post() {
   };
   // ✅ SHARE FUNCTION
   const handleShare = async (post) => {
-  const url = `${window.location.origin}/post/${post.id}`;
+  const url = `${window.location.origin}/post?share=${post.id}`;
 
   try {
     if (navigator.share) {
@@ -231,9 +258,12 @@ export default function Post() {
 
             return (
               <div
-                key={post.id}
-                className="bg-gray-100 rounded-lg shadow p-4"
-              >
+  key={post.id}
+  id={`post-${post.id}`}
+  className={`bg-gray-100 rounded-lg shadow p-4 transition-all ${
+    highlightId === post.id ? "ring-4 ring-yellow-300" : ""
+  }`}
+>
 
                 {/* HEADER */}
                 <div className="flex items-center gap-3 mb-2">
