@@ -214,6 +214,15 @@ useEffect(() => {
     }
   };
 
+  // ✅ Final ordered list: shared post first, then others newest -> oldest
+const sortedPosts = [...posts].sort(
+  (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+);
+
+const displayPosts = sharedPost
+  ? [sharedPost, ...sortedPosts.filter((p) => p.id !== sharedPost.id)]
+  : sortedPosts;
+
   return (
     <>
       <Seo title="Community Feed" />
@@ -225,10 +234,7 @@ useEffect(() => {
             Community Feed
           </h1>
 
-          {[
-  ...(sharedPost ? [sharedPost] : []),
-  ...posts.filter((p) => !sharedPost || p.id !== sharedPost.id),
-].map((post) => {
+          {displayPosts.map((post) => {
             const likeCount = post.likes
               ? Object.keys(post.likes).length
               : 0;
