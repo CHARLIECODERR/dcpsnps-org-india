@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { auth, db } from "../services/firebase";
 import {
   ref,
@@ -16,7 +16,6 @@ import {
   FaUserCircle,
   FaTrash,
   FaEdit,
-  FaRegCopy,
   FaReply,
   FaThumbsUp,
   FaCheck,
@@ -42,6 +41,8 @@ export default function Chat() {
   const [replyTo, setReplyTo] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState("");
+
+  const messageRefs = useRef({});
 
   // 🔹 Auth listener (optional login)
   useEffect(() => {
@@ -148,6 +149,17 @@ export default function Chat() {
     });
   };
 
+  const scrollToMessage = (id) => {
+    const el = messageRefs.current[id];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-emerald-400");
+      setTimeout(() => {
+        el.classList.remove("ring-2", "ring-emerald-400");
+      }, 1500);
+    }
+  };
+
   // 🔹 Group messages by date
   const grouped = useMemo(() => {
     const map = {};
@@ -211,12 +223,18 @@ export default function Chat() {
                     return (
                       <div
                         key={m.id}
+                        ref={(el) => (messageRefs.current[m.id] = el)}
                         className={`flex mb-3 ${
                           isMe ? "justify-end" : "justify-start"
                         }`}
                       >
                         {!isMe && <Avatar url={m.photoURL} />}
-                        <div className="max-w-md mx-2 bg-white p-2 rounded shadow text-sm">
+
+                        <div
+                          className={`max-w-md mx-2 p-2 rounded-2xl shadow text-sm ${
+                            isMe ? "bg-emerald-100" : "bg-white"
+                          }`}
+                        >
                           <div className="font-semibold text-xs">
                             {isMe ? "You" : m.username}
                           </div>
@@ -231,29 +249,60 @@ export default function Chat() {
                                 className="w-full border rounded"
                               />
                               <div className="flex gap-2 text-xs mt-1">
-                                <button onClick={() => saveEdit(m)}>
+                                <button
+                                  onClick={() => saveEdit(m)}
+                                  className="flex items-center gap-1"
+                                >
                                   <FaCheck /> Save
                                 </button>
                                 <button
-                                  onClick={() => setEditingId(null)}
+                                  onClick={() => {
+                                    setEditingId(null);
+                                    setEditingText("");
+                                  }}
+                                  className="flex items-center gap-1"
                                 >
                                   <FaTimesCircle /> Cancel
                                 </button>
                               </div>
                             </>
                           ) : (
-                            <p>{m.text}</p>
+                            <>
+                              {m.replyTo && (
+                                <button
+                                  type="button"
+                                  onClick={() => scrollToMessage(m.replyTo.id)}
+                                  className="mb-2 w-full text-left bg-gray-100 border-l-4 border-emerald-500 px-2 py-1 rounded"
+                                >
+                                  <div className="text-[11px] font-semibold text-emerald-700">
+                                    {m.replyTo.userId === user?.uid
+                                      ? "You"
+                                      : m.replyTo.username}
+                                  </div>
+                                  <div className="text-xs text-gray-600 truncate">
+                                    {m.replyTo.text}
+                                  </div>
+                                </button>
+                              )}
+
+                              <p>{m.text}</p>
+                            </>
                           )}
 
-                          <div className="text-[11px] opacity-60">
+                          <div className="text-[11px] opacity-60 mt-1">
                             {ts && formatTime(ts)}
                             {m.edited && " • edited"}
                           </div>
 
-                          <div className="flex gap-3 text-xs mt-1">
+                          <div className="flex gap-3 text-xs mt-1 items-center">
                             <button onClick={() => toggleReaction(m)}>
                               <FaThumbsUp />
                             </button>
+
+                            <button onClick={() => setReplyTo(m)}>
+                              <FaReply />
+                            </button>
+
                             {isMe && (
                               <>
                                 <button onClick={() => startEdit(m)}>
@@ -269,6 +318,7 @@ export default function Chat() {
                             )}
                           </div>
                         </div>
+
                         {isMe && <Avatar url={m.photoURL} />}
                       </div>
                     );
@@ -278,26 +328,50 @@ export default function Chat() {
             </div>
 
             {/* Input */}
-            <div className="p-3 bg-white flex gap-2 border-t">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={
-                  user
-                    ? "Type a message"
-                    : "Login to participate in community chat"
-                }
-                disabled={!user}
-                className="flex-1 border rounded-full px-3 py-2 disabled:bg-gray-100"
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!user}
-                className="bg-emerald-700 text-white p-2 rounded-full disabled:opacity-50"
-              >
-                <FaPaperPlane />
-              </button>
+            <div className="p-3 bg-white border-t">
+              {replyTo && (
+                <div className="mb-2 flex items-start justify-between bg-gray-100 border-l-4 border-emerald-600 px-3 py-2 rounded">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-emerald-700">
+                      Replying to{" "}
+                      {replyTo.userId === user?.uid
+                        ? "yourself"
+                        : replyTo.username}
+                    </div>
+                    <div className="text-sm text-gray-700 truncate">
+                      {replyTo.text}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setReplyTo(null)}
+                    className="ml-2 text-gray-500 hover:text-red-500"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={
+                    user
+                      ? "Type a message"
+                      : "Login to participate in community chat"
+                  }
+                  disabled={!user}
+                  className="flex-1 border rounded-full px-3 py-2 disabled:bg-gray-100"
+                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!user}
+                  className="bg-emerald-700 text-white p-2 rounded-full disabled:opacity-50"
+                >
+                  <FaPaperPlane />
+                </button>
+              </div>
             </div>
           </div>
         </div>
